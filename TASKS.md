@@ -20,8 +20,9 @@
 9. [Module 8: Workflow Orchestration](#module-8-workflow-orchestration) - Tasks 92-103
 10. [Module 9: Integration & End-to-End Testing](#module-9-integration--end-to-end-testing) - Tasks 104-119
 11. [Module 10: Documentation & Deployment](#module-10-documentation--deployment) - Tasks 120-140
+12. [Module 11: MCP Integration](#module-11-mcp-model-context-protocol-integration) - Tasks 141-154
 
-**Total Tasks: 140**
+**Total Tasks: 154**
 
 ---
 
@@ -881,31 +882,93 @@
 
 ---
 
+## Module 11: MCP (Model Context Protocol) Integration
+
+### 11.1 MCP Server Implementation
+
+- [ ] **Task 141**: Research MCP specification
+  - Study MCP protocol documentation
+  - Understand server/client architecture
+  - Identify integration points for TestGen AI
+
+- [ ] **Task 142**: Create MCP server structure
+  - Create `src/testgen/mcp/` directory
+  - Implement MCP server base class
+  - Define protocol handlers
+
+- [ ] **Task 143**: Implement resource providers
+  - Expose test results as MCP resources
+  - Expose code analysis data
+  - Expose test coverage information
+
+- [ ] **Task 144**: Implement tool providers
+  - Create tool: `generate_tests`
+  - Create tool: `run_tests`
+  - Create tool: `get_coverage`
+
+### 11.2 AI Editor Integration
+
+- [ ] **Task 145**: VSCode MCP client
+  - Create VSCode extension structure
+  - Implement MCP client for VSCode
+  - Add commands for test generation
+
+- [ ] **Task 146**: Cursor IDE integration
+  - Test MCP server with Cursor
+  - Create Cursor-specific configurations
+  - Document Cursor setup process
+
+- [ ] **Task 147**: Implement prompt templates for editors
+  - Create prompt: "Generate tests for current file"
+  - Create prompt: "Explain test failures"
+  - Create prompt: "Suggest test improvements"
+
+### 11.3 Real-time Code Analysis
+
+- [ ] **Task 148**: Implement context sharing
+  - Share current file context via MCP
+  - Share project structure via MCP
+  - Share test execution history
+
+- [ ] **Task 149**: Implement AI-assisted debugging
+  - Expose test failure analysis
+  - Provide fix suggestions via MCP
+  - Enable interactive test refinement
+
+### 11.4 MCP Protocol Features
+
+- [ ] **Task 150**: Implement notifications
+  - Notify on test generation complete
+  - Notify on test execution complete
+  - Notify on coverage changes
+
+- [ ] **Task 151**: Implement progress tracking
+  - Report long-running operations
+  - Provide cancellation support
+  - Show detailed progress info
+
+### 11.5 MCP Testing & Documentation
+
+- [ ] **Task 152**: Create MCP integration tests
+  - Test server startup/shutdown
+  - Test tool invocations
+  - Test resource access
+
+- [ ] **Task 153**: Document MCP endpoints
+  - Document all available tools
+  - Document all resources
+  - Create API reference
+
+- [ ] **Task 154**: Create editor setup guides
+  - VSCode setup guide
+  - Cursor setup guide
+  - Generic MCP client guide
+
+---
+
 ## 📊 Progress Tracking
 
-**Status Legend:**
-- ⬜ Not Started
-- 🟡 In Progress
-- ✅ Completed
-- ❌ Blocked
-
-### Module Completion Overview
-
-| Module | Tasks | Status | Completion % | Notes |
-|--------|-------|--------|--------------|-------|
-| Module 0: Setup | 1-9 | ⬜ | 0% | |
-| Module 1: CLI Framework | 10-21 | ⬜ | 0% | |
-| Module 2: Scanner | 22-32 | ⬜ | 0% | |
-| Module 3: LLM Integration | 33-46 | ⬜ | 0% | |
-| Module 4: Test Runner | 47-58 | ⬜ | 0% | |
-| Module 5: Watch Mode | 59-68 | ⬜ | 0% | |
-| Module 6: Terminal UI | 69-79 | ⬜ | 0% | |
-| Module 7: Report Generation | 80-91 | ⬜ | 0% | |
-| Module 8: Orchestration | 92-103 | ⬜ | 0% | |
-| Module 9: Integration Testing | 104-119 | ⬜ | 0% | |
-| Module 10: Documentation | 120-140 | ⬜ | 0% | |
-
-**Overall Project Completion: 0/140 tasks (0%)**
+> **See [PROGRESS.md](PROGRESS.md) for detailed progress tracking, milestones, and completion status.**
 
 ---
 
@@ -942,9 +1005,11 @@
 - **Python Version**: Minimum 3.10 for modern syntax support
 - **Testing Strategy**: Unit tests for each module, integration tests for workflows
 - **Release Strategy**: Alpha → Beta → v1.0 based on user feedback
+- **MCP Integration**: Enable AI editor integration (VSCode, Cursor) for enhanced developer experience
 
 ---
 
 **Last Updated**: 2025-12-07  
 **Project Status**: Planning Phase Complete - Ready for Implementation  
-**Next Task**: Task 1 - Create root project directory structure
+**Next Task**: Task 1 - Create root project directory structure  
+**Total Tasks**: 154 (140 original + 14 MCP integration)
