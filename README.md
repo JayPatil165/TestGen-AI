@@ -3,8 +3,10 @@
 > **"The Autonomous QA Agent from Your CLI"**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status: In Development](https://img.shields.io/badge/status-in%20development-orange.svg)](https://github.com/JayPatil165/TestGen-AI)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+> ⚠️ **Project Status**: This project is currently under active development. Features described below are being implemented according to the [development roadmap](TASKS.md).
 
 A Python-based CLI package that acts as an **"Autonomous QA Pair-Programmer."** It lives in your terminal and automates the tedious parts of software testing: understanding code, writing test cases, running them, and formatting reports.
 
@@ -61,16 +63,13 @@ TestGen AI operates on a localized 4-step loop:
 
 ## 📦 Installation
 
+> ⚠️ **Note**: TestGen AI is currently in development. Installation from PyPI will be available after v1.0 release.
+
 ### Prerequisites
 - Python 3.10 or higher
 - pip package manager
 
-### Install from PyPI *(Coming Soon)*
-```bash
-pip install testgen-ai
-```
-
-### Install from Source
+### Install from Source (Development)
 ```bash
 # Clone the repository
 git clone https://github.com/JayPatil165/TestGen-AI.git
@@ -80,13 +79,17 @@ cd TestGen-AI
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install in editable mode
+# Install dependencies (when available)
 pip install -e .
 ```
+
+**Current Status**: The project structure is being built. See [TASKS.md](TASKS.md) for progress (Tasks 1-140).
 
 ---
 
 ## 🚀 Quick Start
+
+> ⚠️ **Coming Soon**: The following commands are planned features. Implementation is in progress - see [TASKS.md](TASKS.md) for current status.
 
 ### 1. Configure API Keys
 
@@ -99,7 +102,7 @@ ANTHROPIC_API_KEY=your-claude-key
 # OR use Ollama (local, no API key needed)
 ```
 
-### 2. Run Your First Test Generation
+### 2. Run Your First Test Generation (Planned)
 
 ```bash
 # Generate tests for your project
@@ -115,7 +118,7 @@ testgen report
 testgen auto
 ```
 
-### 3. Enable Watch Mode (Real-time TDD)
+### 3. Enable Watch Mode (Planned)
 
 ```bash
 # Watch your code and auto-generate tests as you type
@@ -346,19 +349,26 @@ See [TASKS.md](TASKS.md) for the development roadmap.
 
 ## 📝 Development Roadmap
 
-The project is organized into **10 modules** with **140 sequential tasks**. See [TASKS.md](TASKS.md) for details:
+The project is organized into **10 modules** with **140 sequential tasks**. See [TASKS.md](TASKS.md) for complete details.
 
-- ✅ Module 0: Project Setup (Tasks 1-9)
-- 🟡 Module 1: CLI Framework (Tasks 10-21)
-- ⬜ Module 2: Code Scanner (Tasks 22-32)
-- ⬜ Module 3: LLM Integration (Tasks 33-46)
-- ⬜ Module 4: Test Runner (Tasks 47-58)
-- ⬜ Module 5: Watch Mode (Tasks 59-68)
-- ⬜ Module 6: Terminal UI (Tasks 69-79)
-- ⬜ Module 7: Report Generation (Tasks 80-91)
-- ⬜ Module 8: Workflow Orchestration (Tasks 92-103)
-- ⬜ Module 9: Integration Testing (Tasks 104-119)
-- ⬜ Module 10: Documentation & Deployment (Tasks 120-140)
+### Current Status: Planning & Foundation Phase
+
+- ✅ **Planning Complete**: Project structure defined, tasks mapped
+- 🟡 **Module 0**: Project Setup (In Progress - Tasks 1-9)
+- ⬜ **Module 1**: CLI Framework (Upcoming - Tasks 10-21)
+- ⬜ **Module 2**: Code Scanner (Planned - Tasks 22-32)
+- ⬜ **Module 3**: LLM Integration (Planned - Tasks 33-46)
+- ⬜ **Module 4**: Test Runner (Planned - Tasks 47-58)
+- ⬜ **Module 5**: Watch Mode (Planned - Tasks 59-68)
+- ⬜ **Module 6**: Terminal UI (Planned - Tasks 69-79)
+- ⬜ **Module 7**: Report Generation (Planned - Tasks 80-91)
+- ⬜ **Module 8**: Workflow Orchestration (Planned - Tasks 92-103)
+- ⬜ **Module 9**: Integration Testing (Planned - Tasks 104-119)
+- ⬜ **Module 10**: Documentation & Deployment (Planned - Tasks 120-140)
+
+**Overall Progress**: 0/140 tasks completed (0%)
+
+See the [full task breakdown](TASKS.md) for detailed implementation steps.
 
 ---
 
@@ -385,7 +395,9 @@ export PATH="$PATH:$HOME/.local/bin"
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**License**: To be determined. This project is currently in development.
+
+Once released, a license will be added to define usage terms.
 
 ---
 
