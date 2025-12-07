@@ -30,57 +30,58 @@
 
 ### 0.1 Initial Project Structure
 
-- [ ] **Task 1**: Create root project directory structure
-  - Create `src/testgen/` directory
-  - Create `src/testgen/core/` directory
-  - Create `src/testgen/ui/` directory
-  - Create `tests/` directory for unit tests
-  - Create `.github/workflows/` for CI/CD
+- [X] **Task 1**: Create root project directory structure
+  - [X] Create `src/testgen/` directory
+  - [X] Create `src/testgen/core/` directory
+  - [X] Create `src/testgen/ui/` directory
+  - [X] Create `tests/` directory for unit tests
+  - [X] Create `.github/workflows/` for CI/CD
 
-- [ ] **Task 2**: Initialize Git repository
-  - Run `git init`
-  - Create `.gitignore` file (exclude `__pycache__`, `.venv`, `*.pyc`, `.env`, `node_modules/`)
-  - Create initial commit
+- [X] **Task 2**: Initialize Git repository
+  - [X] Run `git init`
+  - [X] Create `.gitignore` file (exclude `__pycache__`, `.venv`, `*.pyc`, `.env`, `node_modules/`)
+  - [X] Create initial commit
 
 ### 0.2 Python Environment Setup
 
-- [ ] **Task 3**: Create Python virtual environment
-  - Run `python -m venv .venv`
-  - Activate virtual environment
-  - Upgrade pip: `pip install --upgrade pip`
+- [X] **Task 3**: Create Python virtual environment
+  - [X] Run `python -m venv .venv`
+  - [X] Activate virtual environment
+  - [X] Upgrade pip: `pip install --upgrade pip`
 
-- [ ] **Task 4**: Create `pyproject.toml` configuration file
-  - Set project metadata (name, version, description)
-  - Define dependencies: `typer[all]`, `rich`, `litellm`, `pydantic`, `watchdog`, `pytest`, `pytest-json-report`, `playwright`, `jinja2`
-  - Configure build system (setuptools/poetry)
-  - Define entry point for CLI: `testgen = testgen.main:app`
+- [X] **Task 4**: Create `pyproject.toml` configuration file
+  - [X] Set project metadata (name, version, description)
+  - [X] Define dependencies: `typer[all]`, `rich`, `litellm`, `pydantic`, `watchdog`, `pytest`, `pytest-json-report`, `playwright`, `jinja2`
+  - [X] Configure build system (setuptools/poetry)
+  - [X] Define entry point for CLI: `testgen = testgen.main:app`
 
-- [ ] **Task 5**: Install dependencies
-  - Run `pip install -e .` to install package in editable mode
-  - Verify all dependencies installed correctly
+- [X] **Task 5**: Install dependencies
+  - [X] Run `pip install -e .` to install package in editable mode
+  - [X] Verify all dependencies installed correctly
 
 ### 0.3 Configuration Management
 
-- [ ] **Task 6**: Create `src/testgen/config.py`
-  - Define configuration class using Pydantic
-  - Add API key management (OpenAI, Claude, Ollama)
-  - Add project settings (test directory, output paths)
-  - Implement environment variable loading (.env support)
+- [X] **Task 6**: Create `src/testgen/config.py`
+  - [X] Define configuration class using Pydantic
+  - [X] Add API key management (OpenAI, Claude, Ollama)
+  - [X] Add project settings (test directory, output paths)
+  - [X] Implement environment variable loading (.env support)
 
-- [ ] **Task 7**: Create `.env.example` file
-  - Document all required environment variables
-  - Add placeholder values for API keys
+- [X] **Task 7**: Create `.env.example` file
+  - [X] Document all required environment variables
+  - [X] Add placeholder values for API keys
 
 ### 0.4 Core Package Files
 
-- [ ] **Task 8**: Create `src/testgen/__init__.py`
-  - Define package version
-  - Export main components
-  - Add package-level docstring
+- [X] **Task 8**: Create `src/testgen/__init__.py`
+  - [X] Define package version
+  - [X] Export main components
+  - [X] Add package-level docstring
 
-- [ ] **Task 9**: Create all `__init__.py` files
-  - `src/testgen/core/__init__.py`
-  - `src/testgen/ui/__init__.py`
+- [X] **Task 9**: Create all `__init__.py` files
+  - [X] `src/testgen/core/__init__.py`
+  - [X] `src/testgen/ui/__init__.py`
+  - [X] `src/testgen/mcp/__init__.py`
 
 ---
 
