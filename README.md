@@ -6,7 +6,7 @@
 [![Status: In Development](https://img.shields.io/badge/status-in%20development-orange.svg)](https://github.com/JayPatil165/TestGen-AI)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-> ⚠️ **Project Status**: This project is currently under active development. Features described below are being implemented according to the [development roadmap](TASKS.md).
+> ⚠️ **Project Status**: This project is currently under active development. Features described below are being implemented according to the [development roadmap](planning/TASKS.md).
 
 A Python-based CLI package that acts as an **"Autonomous QA Pair-Programmer."** It lives in your terminal and automates the tedious parts of software testing: understanding code, writing test cases, running them, and formatting reports.
 
@@ -83,13 +83,13 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e .
 ```
 
-**Current Status**: The project structure is being built. See [TASKS.md](TASKS.md) for progress (Tasks 1-140).
+**Current Status**: The project structure is being built. See [planning/TASKS.md](planning/TASKS.md) for progress tracking.
 
 ---
 
 ## 🚀 Quick Start
 
-> ⚠️ **Coming Soon**: The following commands are planned features. Implementation is in progress - see [TASKS.md](TASKS.md) for current status.
+> ⚠️ **Coming Soon**: The following commands are planned features. Implementation is in progress - see [planning/TASKS.md](planning/TASKS.md) for current status.
 
 ### 1. Configure API Keys
 
@@ -232,24 +232,31 @@ Summary: 4 passed, 1 failed, 0 skipped | Total: 6.57s
 
 ```
 testgen-ai/
-├── pyproject.toml           # Configuration & Dependencies
-├── README.md                # This file
-├── TASKS.md                 # Development roadmap (140 tasks)
+├── planning/                # Project management
+│   ├── TASKS.md                 # Development tasks (154 total)
+│   └── PROGRESS.md              # Completion tracking
+├── docs/                    # User documentation
+│   └── getting-started.md       # Quick start guide
+├── src/
+│   └── testgen/
+│       ├── __init__.py
+│       ├── main.py          # CLI Entry Point (Typer)
+│       ├── manager.py       # Workflow Orchestrator
+│       ├── config.py        # Settings & API Keys
+│       ├── core/            # Backend Logic
+│       │   ├── scanner.py       # Code analyzer
+│       │   ├── llm.py           # AI integration
+│       │   ├── runner.py        # Test executor
+│       │   └── watcher.py       # Watch mode handler
+│       ├── ui/              # Frontend Visuals
+│       │   ├── printer.py       # Terminal matrix renderer
+│       │   └── reporter.py      # HTML/PDF generator
+│       └── mcp/             # Model Context Protocol
+├── tests/                   # Test suite
+├── examples/                # Example projects
 ├── .env.example             # Environment variables template
-└── src/
-    └── testgen/
-        ├── __init__.py
-        ├── main.py          # CLI Entry Point (Typer)
-        ├── manager.py       # Workflow Orchestrator
-        ├── config.py        # Settings & API Keys
-        ├── core/            # Backend Logic
-        │   ├── scanner.py       # Code analyzer
-        │   ├── llm.py           # AI integration
-        │   ├── runner.py        # Test executor
-        │   └── watcher.py       # Watch mode handler
-        └── ui/              # Frontend Visuals
-            ├── printer.py       # Terminal matrix renderer
-            └── reporter.py      # HTML/PDF generator
+├── pyproject.toml           # Configuration & Dependencies
+└── README.md                # This file
 ```
 
 ---
@@ -343,13 +350,13 @@ We welcome contributions! Here's how to get started:
 6. **Push to branch**: `git push origin feature/amazing-feature`
 7. **Open a Pull Request**
 
-See [TASKS.md](TASKS.md) for the development roadmap.
+See [planning/TASKS.md](planning/TASKS.md) for the development roadmap.
 
 ---
 
 ## 📝 Development Roadmap
 
-The project is organized into **10 modules** with **140 sequential tasks**. See [TASKS.md](TASKS.md) for complete details.
+The project is organized into **11 modules** with **154 sequential tasks**. See [planning/TASKS.md](planning/TASKS.md) for complete details.
 
 ### Current Status: Planning & Foundation Phase
 
@@ -366,9 +373,9 @@ The project is organized into **10 modules** with **140 sequential tasks**. See 
 - ⬜ **Module 9**: Integration Testing (Planned - Tasks 104-119)
 - ⬜ **Module 10**: Documentation & Deployment (Planned - Tasks 120-140)
 
-**Overall Progress**: 0/140 tasks completed (0%)
+**Overall Progress**: 0/154 tasks completed (0%) · [View Progress](planning/PROGRESS.md)
 
-See the [full task breakdown](TASKS.md) for detailed implementation steps.
+See the [full task breakdown](planning/TASKS.md) for detailed implementation steps.
 
 ---
 
