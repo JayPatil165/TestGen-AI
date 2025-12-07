@@ -1,7 +1,7 @@
 # TestGen AI - Project Progress
 
 > **Last Updated**: 2025-12-07  
-> **Overall Completion**: 0/140 tasks (0%)  
+> **Overall Completion**: 0/154 tasks (0%)  
 > **Current Phase**: Planning & Foundation
 
 ---
