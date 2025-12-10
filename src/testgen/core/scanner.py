@@ -502,9 +502,10 @@ class CodeScanner:
     def _extract_python_info(self, content: str) -> tuple[List[str], List[str], List[str]]:
         """
         Extract functions, classes, and imports from Python code.
+        Enhanced to extract full signatures, parameters, return types, docstrings, and decorators.
         
         Returns:
-            Tuple of (functions, classes, imports)
+            Tuple of (function_signatures, class_info_with_methods, imports)
         """
         functions = []
         classes = []
@@ -515,9 +516,72 @@ class CodeScanner:
             
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
-                    functions.append(node.name)
+                    # Build function signature
+                    params = []
+                    for arg in node.args.args:
+                        param_str = arg.arg
+                        # Add type annotation if present
+                        if arg.annotation:
+                            param_str += f": {ast.unparse(arg.annotation)}"
+                        params.append(param_str)
+                    
+                    # Build signature string
+                    sig = f"{node.name}({', '.join(params)})"
+                    
+                    # Add return type if present
+                    if node.returns:
+                        sig += f" -> {ast.unparse(node.returns)}"
+                    
+                    # Add decorators if present
+                    if node.decorator_list:
+                        decorators = [f"@{ast.unparse(d)}" for d in node.decorator_list]
+                        sig = f"{' '.join(decorators)} {sig}"
+                    
+                    # Add docstring if present
+                    docstring = ast.get_docstring(node)
+                    if docstring:
+                        # Just first line of docstring
+                        first_line = docstring.split('\n')[0].strip()
+                        sig += f' """  {first_line}'
+                    
+                    functions.append(sig)
+                    
                 elif isinstance(node, ast.ClassDef):
-                    classes.append(node.name)
+                    # Build class info with bases
+                    class_info = node.name
+                    if node.bases:
+                        bases = [ast.unparse(base) for base in node.bases]
+                        class_info += f"({', '.join(bases)})"
+                    
+                    # Add class decorators
+                    if node.decorator_list:
+                        decorators = [f"@{ast.unparse(d)}" for d in node.decorator_list]
+                        class_info = f"{' '.join(decorators)} {class_info}"
+                    
+                    # Add docstring
+                    docstring = ast.get_docstring(node)
+                    if docstring:
+                        first_line = docstring.split('\n')[0].strip()
+                        class_info += f' """ {first_line}'
+                    
+                    # Extract class methods
+                    methods = []
+                    for item in node.body:
+                        if isinstance(item, ast.FunctionDef):
+                            method_info = item.name
+                            # Add method decorators
+                            if item.decorator_list:
+                                method_decorators = [ast.unparse(d) for d in item.decorator_list]
+                                if any(d in method_decorators for d in ['property', 'classmethod', 'staticmethod']):
+                                    method_info = f"@{method_decorators[0]} {method_info}"
+                            methods.append(method_info)
+                    
+                    # Add methods to class info
+                    if methods:
+                        class_info += f" [methods: {', '.join(methods[:5])}]"  # Limit to first 5
+                    
+                    classes.append(class_info)
+                    
                 elif isinstance(node, (ast.Import, ast.ImportFrom)):
                     if isinstance(node, ast.Import):
                         for alias in node.names:
@@ -535,10 +599,10 @@ class CodeScanner:
     def _extract_javascript_info(self, content: str) -> tuple[List[str], List[str], List[str]]:
         """
         Extract functions, classes, and imports from JavaScript/TypeScript code.
-        Uses regex-based extraction (basic but functional).
+        Enhanced to capture parameters, type annotations, JSDoc, class methods, and decorators.
         
         Returns:
-            Tuple of (functions, classes, imports)
+            Tuple of (function_signatures, classes_with_methods, imports)
         """
         import re
         
@@ -546,29 +610,70 @@ class CodeScanner:
         classes = []
         imports = []
         
-        # Extract function declarations
-        # Matches: function name(...), const name = (...) =>, async function name
+        # Extract function declarations with parameters
         func_patterns = [
-            r'function\s+(\w+)\s*\(',
-            r'const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>',
-            r'(\w+)\s*:\s*(?:async\s*)?\([^)]*\)\s*=>',  # Object method
-            r'async\s+function\s+(\w+)\s*\(',
+            r'function\s+(\w+)\s*\(([^)]*)\)(?:\s*:\s*(\w+))?',
+            r'const\s+(\w+)\s*=\s*(?:async\s*)?\(([^)]*)\)(?:\s*:\s*(\w+))?\s*=>',
+            r'(\w+)\s*:\s*(?:async\s*)?\(([^)]*)\)(?:\s*:\s*(\w+))?\s*=>',
+            r'async\s+function\s+(\w+)\s*\(([^)]*)\)(?:\s*:\s*(\w+))?',
         ]
         
         for pattern in func_patterns:
             matches = re.findall(pattern, content)
-            functions.extend(matches)
+            for match in matches:
+                if len(match) >= 2:
+                    name, params = match[0], match[1]
+                    sig = f"{name}({params})"
+                    if len(match) > 2 and match[2]:
+                        sig += f" : {match[2]}"
+                    functions.append(sig)
         
-        # Extract class declarations
-        class_matches = re.findall(r'class\s+(\w+)', content)
-        classes.extend(class_matches)
+        # Extract class declarations with methods
+        class_pattern = r'class\s+(\w+)(?:\s+extends\s+(\w+))?\s*{([^}]+)}'
+        class_matches = re.findall(class_pattern, content, re.DOTALL)
+        for match in class_matches:
+            class_name = match[0]
+            extends = match[1]
+            class_body = match[2]
+            
+            class_info = class_name
+            if extends:
+                class_info += f" extends {extends}"
+            
+            # Extract decorators (TypeScript)
+            decorator_pattern = rf'@(\w+)\s+class\s+{class_name}'
+            decorator_match = re.search(decorator_pattern, content)
+            if decorator_match:
+                class_info = f"@{decorator_match.group(1)} {class_info}"
+            
+            # Extract class methods
+            method_pattern = r'(?:async\s+)?(\w+)\s*\([^)]*\)'
+            methods = re.findall(method_pattern, class_body)
+            # Filter out keywords
+            methods = [m for m in methods if m not in ['if', 'while', 'for', 'switch', 'return']]
+            
+            if methods:
+                class_info += f" [methods: {', '.join(methods[:5])}]"
+            
+            classes.append(class_info)
         
-        # Extract React components (function components)
-        component_matches = re.findall(r'(?:export\s+)?(?:default\s+)?function\s+([A-Z]\w+)\s*\(', content)
-        classes.extend(component_matches)
+        # Extract React components with props
+        component_pattern = r'(?:export\s+)?(?:default\s+)?function\s+([A-Z]\w+)\s*\(([^)]*)\)'
+        component_matches = re.findall(component_pattern, content)
+        for name, props in component_matches:
+            sig = f"{name}({props})" if props else name
+            
+            # Check for React hooks in component body
+            component_body_pattern = rf'function\s+{name}[^{{]*{{([^}}]+)}}'
+            body_match = re.search(component_body_pattern, content, re.DOTALL)
+            if body_match:
+                hooks = re.findall(r'use(\w+)', body_match.group(1))
+                if hooks:
+                    sig += f" [hooks: {', '.join(set(hooks[:3]))}]"
+            
+            classes.append(f"Component: {sig}")
         
         # Extract imports
-        # Matches: import ... from '...', require('...')
         import_patterns = [
             r'import\s+.*?from\s+[\'"]([^\'"]+)[\'"]',
             r'require\([\'"]([^\'"]+)[\'"]\)',
@@ -583,9 +688,10 @@ class CodeScanner:
     def _extract_java_info(self, content: str) -> tuple[List[str], List[str], List[str]]:
         """
         Extract functions, classes, and imports from Java code.
+        Enhanced to capture method signatures, access modifiers, Javadoc, annotations, and class methods.
         
         Returns:
-            Tuple of (functions/methods, classes, imports)
+            Tuple of (method_signatures, classes_with_methods, imports)
         """
         import re
         
@@ -593,18 +699,79 @@ class CodeScanner:
         classes = []
         imports = []
         
-        # Extract class declarations
-        class_matches = re.findall(r'(?:public|private|protected)?\s*class\s+(\w+)', content)
-        classes.extend(class_matches)
+        # Extract class declarations with extends/implements and methods
+        class_pattern = r'(?:public|private|protected)?\s*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?\s*{([^}]*)'
+        class_matches = re.findall(class_pattern, content, re.DOTALL)
+        for match in class_matches:
+            class_name = match[0]
+            extends = match[1]
+            implements = match[2]
+            class_body = match[3][:500]  # Limit body size
+            
+            class_info = class_name
+            if extends:
+                class_info += f" extends {extends}"
+            if implements:
+                class_info += f" implements {implements}"
+            
+            # Check for class annotations
+            annotation_pattern = rf'@(\w+)\s+(?:public|private|protected)?\s*class\s+{class_name}'
+            annotation_match = re.search(annotation_pattern, content)
+            if annotation_match:
+                class_info = f"@{annotation_match.group(1)} {class_info}"
+            
+            # Extract methods from class body
+            method_pattern = r'(?:public|private|protected)\s+(?:\w+\s+)?(\w+)\s*\('
+            methods = re.findall(method_pattern, class_body)
+            methods = [m for m in methods if m not in class_name]  # Remove constructor
+            
+            if methods:
+                class_info += f" [methods: {', '.join(set(methods[:5]))}]"
+            
+            classes.append(class_info)
         
         # Extract interface declarations
-        interface_matches = re.findall(r'(?:public|private)?\s*interface\s+(\w+)', content)
-        classes.extend(interface_matches)
+        interface_pattern = r'(?:public|private)?\s*interface\s+(\w+)(?:\s+extends\s+([\w,\s]+))?\s*{([^}]*)'
+        interface_matches = re.findall(interface_pattern, content, re.DOTALL)
+        for match in interface_matches:
+            interface_name = match[0]
+            extends = match[1]
+            interface_body = match[2][:300]
+            
+            interface_info = f"interface {interface_name}"
+            if extends:
+                interface_info += f" extends {extends}"
+            
+            # Extract interface methods
+            method_pattern = r'(\w+)\s*\([^)]*\)\s*;'
+            methods = re.findall(method_pattern, interface_body)
+            if methods:
+                interface_info += f" [methods: {', '.join(methods[:5])}]"
+            
+            classes.append(interface_info)
         
-        # Extract method declarations
-        method_pattern = r'(?:public|private|protected|static|\s)+\w+\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+\w+\s*)?{'
+        # Extract method declarations with full signatures
+        method_pattern = r'((?:public|private|protected|static|final)\s+)+(\w+(?:<[\w,\s<>]+>)?)\s+(\w+)\s*\(([^)]*)\)'
         method_matches = re.findall(method_pattern, content)
-        functions.extend(method_matches)
+        for match in method_matches:
+            modifiers = match[0].strip()
+            return_type = match[1]
+            method_name = match[2]
+            params = match[3].strip()
+            
+            sig = f"{method_name}({params}) : {return_type}"
+            if 'public' in modifiers:
+                sig = "public " + sig
+            elif 'private' in modifiers:
+                sig = "private " + sig
+            
+            # Check for annotations
+            annotation_pattern = rf'@(\w+)\s+{re.escape(match[0])}{re.escape(match[1])}\s+{re.escape(method_name)}'
+            annotation_match = re.search(annotation_pattern, content)
+            if annotation_match:
+                sig = f"@{annotation_match.group(1)} {sig}"
+            
+            functions.append(sig)
         
         # Extract imports
         import_matches = re.findall(r'import\s+([\w.]+);', content)
@@ -615,9 +782,10 @@ class CodeScanner:
     def _extract_cpp_info(self, content: str) -> tuple[List[str], List[str], List[str]]:
         """
         Extract functions, classes, and includes from C/C++ code.
+        Enhanced to capture function signatures, class methods, virtual functions, and namespaces.
         
         Returns:
-            Tuple of (functions, classes, includes)
+            Tuple of (function_signatures, classes_with_methods, includes)
         """
         import re
         
@@ -625,19 +793,71 @@ class CodeScanner:
         classes = []
         imports = []
         
-        # Extract class declarations
-        class_matches = re.findall(r'class\s+(\w+)', content)
-        classes.extend(class_matches)
+        # Extract class declarations with inheritance and methods
+        class_pattern = r'class\s+(\w+)(?:\s*:\s*(?:public|private|protected)\s+(\w+))?\s*{([^}]*)'
+        class_matches = re.findall(class_pattern, content, re.DOTALL)
+        for match in class_matches:
+            class_name = match[0]
+            base_class = match[1]
+            class_body = match[2][:600]  # Limit body size
+            
+            class_info = class_name
+            if base_class:
+                class_info += f" : {base_class}"
+            
+            # Extract methods from class body (public, private, protected)
+            method_pattern = r'(?:virtual\s+)?(?:static\s+)?(?:\w+\s+)?(\w+)\s*\([^)]*\)(?:\s*const)?'
+            methods = re.findall(method_pattern, class_body)
+            # Filter out keywords and the class name (constructor)
+            methods = [m for m in methods if m not in ['if', 'while', 'for', 'switch', 'return', class_name]]
+            
+            # Check for virtual functions
+            if 'virtual' in class_body:
+                class_info += ' [has virtual]'
+            
+            if methods:
+                class_info += f" [methods: {', '.join(set(methods[:5]))}]"
+            
+            classes.append(class_info)
         
-        # Extract struct declarations
-        struct_matches = re.findall(r'struct\s+(\w+)', content)
-        classes.extend(struct_matches)
+        # Extract struct declarations with members
+        struct_pattern = r'struct\s+(\w+)\s*{([^}]*)'
+        struct_matches = re.findall(struct_pattern, content, re.DOTALL)
+        for match in struct_matches:
+            struct_name = match[0]
+            struct_body = match[1][:300]
+            
+            struct_info = f"struct {struct_name}"
+            
+            # Extract member variables
+            member_pattern = r'([a-zA-Z_]\w+)\s+(\w+)\s*;'
+            members = re.findall(member_pattern, struct_body)
+            if members:
+                member_names = [m[1] for m in members[:3]]
+                struct_info += f" [members: {', '.join(member_names)}]"
+            
+            classes.append(struct_info)
         
-        # Extract function declarations (basic)
-        # Matches: return_type function_name(...)
-        func_pattern = r'^\s*(?:[\w:]+\s+)*(\w+)\s*\([^)]*\)\s*(?:const)?\s*[{;]'
+        # Extract namespace information
+        namespace_pattern = r'namespace\s+(\w+)'
+        namespace_matches = re.findall(namespace_pattern, content)
+        if namespace_matches:
+            classes.append(f"namespace: {', '.join(set(namespace_matches[:3]))}")
+        
+        # Extract function declarations/definitions with signatures
+        func_pattern = r'([\\w:]+(?:\\s+[\\w:]+)?)\s+(\w+)\s*\(([^)]*)\)\s*(?:const)?\s*[{;]'
         func_matches = re.findall(func_pattern, content, re.MULTILINE)
-        functions.extend([f for f in func_matches if f not in ['if', 'while', 'for', 'switch']])
+        for match in func_matches:
+            return_type = match[0].strip()
+            func_name = match[1]
+            params = match[2].strip()
+            
+            # Filter out control structures
+            if func_name in ['if', 'while', 'for', 'switch', 'catch']:
+                continue
+            
+            sig = f"{func_name}({params}) : {return_type}"
+            functions.append(sig)
         
         # Extract includes
         include_matches = re.findall(r'#include\s+[<"]([^>"]+)[>"]', content)
@@ -648,9 +868,10 @@ class CodeScanner:
     def _extract_html_info(self, content: str) -> tuple[List[str], List[str], List[str]]:
         """
         Extract IDs, classes, and script sources from HTML.
+        Enhanced to capture data attributes and element structure.
         
         Returns:
-            Tuple of (ids, classes, scripts/links)
+            Tuple of (ids_with_elements, classes_with_context, scripts/links)
         """
         import re
         
@@ -658,15 +879,24 @@ class CodeScanner:
         classes = []
         scripts = []
         
-        # Extract IDs
-        id_matches = re.findall(r'id=["\']([^"\']+)["\']', content)
-        ids.extend(id_matches)
+        # Extract IDs with element types
+        id_pattern = r'<(\w+)[^>]*\s+id=["\']([^"\']+)["\']'
+        id_matches = re.findall(id_pattern, content)
+        for element, id_name in id_matches:
+            ids.append(f"{element}#{id_name}")
         
-        # Extract classes
-        class_matches = re.findall(r'class=["\']([^"\']+)["\']', content)
-        for class_str in class_matches:
-            # Split multiple classes
-            classes.extend(class_str.split())
+        # Extract classes with element context
+        class_pattern = r'<(\w+)[^>]*\s+class=["\']([^"\']+)["\']'
+        class_matches = re.findall(class_pattern, content)
+        for element, class_str in class_matches:
+            for cls in class_str.split():
+                classes.append(f"{element}.{cls}")
+        
+        # Extract data attributes
+        data_pattern = r'data-(\w+)=["\']([^"\']+)["\']'
+        data_matches = re.findall(data_pattern, content)
+        for data_key, data_val in data_matches[:5]:  # Limit to first 5
+            ids.append(f"data-{data_key}={data_val[:20]}")  # Truncate long values
         
         # Extract script src and link href
         script_matches = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', content)
@@ -675,14 +905,21 @@ class CodeScanner:
         link_matches = re.findall(r'<link[^>]+href=["\']([^"\']+)["\']', content)
         scripts.extend(link_matches)
         
+        # Extract inline event handlers
+        event_pattern = r'on(\w+)=["\']([^"\']+)["\']'
+        event_matches = re.findall(event_pattern, content)
+        for event, handler in event_matches[:3]:  # Limit to first 3
+            ids.append(f"on{event}: {handler[:30]}")
+        
         return list(set(ids)), list(set(classes)), list(set(scripts))
     
     def _extract_css_info(self, content: str) -> tuple[List[str], List[str], List[str]]:
         """
         Extract selectors, classes, and IDs from CSS.
+        Enhanced to capture media queries, keyframes, and pseudo-selectors.
         
         Returns:
-            Tuple of (selectors, classes, ids)
+            Tuple of (selectors_and_queries, classes, ids)
         """
         import re
         
@@ -691,25 +928,45 @@ class CodeScanner:
         ids = []
         
         # Extract class selectors
-        class_matches = re.findall(r'\.([a-zA-Z_][\w-]*)\s*{', content)
+        class_matches = re.findall(r'\.([a-zA-Z_][\w-]*)\s*[{,]', content)
         classes.extend(class_matches)
         
         # Extract ID selectors
-        id_matches = re.findall(r'#([a-zA-Z_][\w-]*)\s*{', content)
+        id_matches = re.findall(r'#([a-zA-Z_][\w-]*)\s*[{,]', content)
         ids.extend(id_matches)
         
-        # Extract general selectors (elements, pseudo-classes)
-        selector_matches = re.findall(r'([a-zA-Z][\w-]*(?::[\w-]+)?)\s*{', content)
+        # Extract general selectors with pseudo-classes
+        selector_pattern = r'([a-zA-Z][\w-]*(?::[\w-]+(?:\([^)]*\))?)?)\s*[{,]'
+        selector_matches = re.findall(selector_pattern, content)
         selectors.extend(selector_matches)
+        
+        # Extract media queries
+        media_pattern = r'@media\s+([^{]+)'
+        media_matches = re.findall(media_pattern, content)
+        for media in media_matches[:5]:  # Limit to first 5
+            selectors.append(f"@media {media.strip()[:50]}")
+        
+        # Extract keyframes
+        keyframe_pattern = r'@keyframes\s+([\w-]+)'
+        keyframe_matches = re.findall(keyframe_pattern, content)
+        for keyframe in keyframe_matches:
+            selectors.append(f"@keyframes {keyframe}")
+        
+        # Extract CSS variables
+        var_pattern = r'--([a-zA-Z][\w-]*)\s*:'
+        var_matches = re.findall(var_pattern, content)
+        for var in var_matches[:10]:  # Limit to first 10
+            ids.append(f"--{var}")
         
         return list(set(selectors)), list(set(classes)), list(set(ids))
     
     def _extract_sql_info(self, content: str) -> tuple[List[str], List[str], List[str]]:
         """
         Extract tables, functions, and procedures from SQL.
+        Enhanced to capture views, triggers, indexes, and parameters.
         
         Returns:
-            Tuple of (tables, functions, procedures)
+            Tuple of (functions_and_procs_with_params, tables_and_views, constraints)
         """
         import re
         
@@ -717,19 +974,57 @@ class CodeScanner:
         functions = []
         procedures = []
         
-        # Extract CREATE TABLE statements
-        table_matches = re.findall(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?(\w+)[`"]?', content, re.IGNORECASE)
-        tables.extend(table_matches)
+        # Extract CREATE TABLE statements with primary keys
+        table_pattern = r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?(\w+)[`"]?\s*\(([^;]*)'
+        table_matches = re.findall(table_pattern, content, re.IGNORECASE | re.DOTALL)
+        for table_name, definition in table_matches:
+            # Check for primary key
+            if 'PRIMARY KEY' in definition.upper():
+                pk_match = re.search(r'PRIMARY\s+KEY\s*\(([^)]+)\)', definition, re.IGNORECASE)
+                if pk_match:
+                    tables.append(f"{table_name} (PK: {pk_match.group(1).strip()})")
+                else:
+                    tables.append(table_name)
+            else:
+                tables.append(table_name)
         
-        # Extract CREATE FUNCTION statements
-        func_matches = re.findall(r'CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+[`"]?(\w+)[`"]?', content, re.IGNORECASE)
-        functions.extend(func_matches)
+        # Extract CREATE VIEW statements
+        view_pattern = r'CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+[`"]?(\w+)[`"]?'
+        view_matches = re.findall(view_pattern, content, re.IGNORECASE)
+        for view_name in view_matches:
+            tables.append(f"VIEW: {view_name}")
         
-        # Extract CREATE PROCEDURE statements
-        proc_matches = re.findall(r'CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+[`"]?(\w+)[`"]?', content, re.IGNORECASE)
-        procedures.extend(proc_matches)
+        # Extract CREATE INDEX statements
+        index_pattern = r'CREATE\s+(?:UNIQUE\s+)?INDEX\s+[`"]?(\w+)[`"]?\s+ON\s+[`"]?(\w+)[`"]?'
+        index_matches = re.findall(index_pattern, content, re.IGNORECASE)
+        for index_name, table_name in index_matches[:5]:  # Limit to first 5
+            procedures.append(f"INDEX: {index_name} ON {table_name}")
         
-        return list(set(tables)), list(set(functions)), list(set(procedures))
+        # Extract CREATE FUNCTION statements with parameters
+        func_pattern = r'CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+[`"]?(\w+)[`"]?\s*\(([^)]*)\)'
+        func_matches = re.findall(func_pattern, content, re.IGNORECASE)
+        for func_name, params in func_matches:
+            if params.strip():
+                functions.append(f"{func_name}({params.strip()[:50]})")
+            else:
+                functions.append(f"{func_name}()")
+        
+        # Extract CREATE PROCEDURE statements with parameters
+        proc_pattern = r'CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+[`"]?(\w+)[`"]?\s*\(([^)]*)\)'
+        proc_matches = re.findall(proc_pattern, content, re.IGNORECASE)
+        for proc_name, params in proc_matches:
+            if params.strip():
+                procedures.append(f"PROC: {proc_name}({params.strip()[:50]})")
+            else:
+                procedures.append(f"PROC: {proc_name}()")
+        
+        # Extract CREATE TRIGGER statements
+        trigger_pattern = r'CREATE\s+TRIGGER\s+[`"]?(\w+)[`"]?\s+(?:BEFORE|AFTER)\s+(\w+)\s+ON\s+[`"]?(\w+)[`"]?'
+        trigger_matches = re.findall(trigger_pattern, content, re.IGNORECASE)
+        for trigger_name, action, table_name in trigger_matches[:3]:  # Limit to first 3
+            procedures.append(f"TRIGGER: {trigger_name} ({action} on {table_name})")
+        
+        return list(set(functions)), list(set(procedures)), list(set(tables))
 
 
 # Convenience instance

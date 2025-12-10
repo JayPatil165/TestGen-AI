@@ -184,15 +184,16 @@
 
 ### 2.3 Smart Context Extraction
 
-- [ ] **Task 26**: Implement function signature extraction
-  - Use AST parsing for Python files
-  - Extract function names, parameters, return types
-  - Extract docstrings
+- [X] **Task 26**: Implement function signature extraction
+  - [X] Use AST parsing for Python files (parameters, return types, docstrings)
+  - [X] Extract function signatures for JavaScript/TypeScript (params, types, JSDoc)
+  - [X] Extract method signatures for Java (modifiers, params, return types)
+  - [X] Extract function signatures for C/C++ (return types, params)
 
-- [ ] **Task 27**: Implement class structure extraction
-  - Extract class names and methods
-  - Extract inheritance information
-  - Extract decorators
+- [X] **Task 27**: Implement class structure extraction
+  - [X] Extract class names and methods
+  - [X] Extract inheritance information  
+  - [X] Extract decorators (Python @property, TypeScript @Component, Java @Override)
 
 - [ ] **Task 28**: Implement smart context reduction
   - If file > 500 lines: extract signatures only
