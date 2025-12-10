@@ -162,25 +162,25 @@
 
 ### 2.1 Scanner Core Implementation
 
-- [ ] **Task 22**: Create `src/testgen/core/scanner.py`
-  - Define `CodeScanner` class
-  - Add method: `scan_directory(path: str) -> dict`
+- [X] **Task 22**: Create `src/testgen/core/scanner.py`
+  - [X] Define `CodeScanner` class
+  - [X] Add method: `scan_directory(path: str) -> dict`
 
-- [ ] **Task 23**: Implement directory traversal
-  - Recursively walk through project directory
-  - Apply filtering rules
+- [X] **Task 23**: Implement directory traversal
+  - [X] Recursively walk through project directory
+  - [X] Apply filtering rules
 
 ### 2.2 Intelligent Filtering
 
-- [ ] **Task 24**: Implement ignore patterns
-  - Exclude: `node_modules/`, `.git/`, `__pycache__/`, `.venv/`
-  - Read `.gitignore` if available
-  - Add custom exclusion rules
+- [X] **Task 24**: Implement ignore patterns
+  - [X] Exclude: `node_modules/`, `.git/`, `__pycache__/`, `.venv/`
+  - [X] Read `.gitignore` if available
+  - [X] Add custom exclusion rules
 
-- [ ] **Task 25**: Implement file type filtering
-  - Include only relevant source files (.py, .js, .ts, .java, etc.)
-  - Exclude binary files
-  - Exclude configuration files unless specified
+- [X] **Task 25**: Implement file type filtering
+  - [X] Include only relevant source files (.py, .js, .ts, .java, etc.)
+  - [X] Exclude binary files
+  - [X] Exclude configuration files unless specified
 
 ### 2.3 Smart Context Extraction
 
