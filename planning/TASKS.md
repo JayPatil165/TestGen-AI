@@ -195,33 +195,40 @@
   - [X] Extract inheritance information  
   - [X] Extract decorators (Python @property, TypeScript @Component, Java @Override)
 
-- [ ] **Task 28**: Implement smart context reduction
-  - If file > 500 lines: extract signatures only
-  - If file < 500 lines: include full code
-  - Calculate token count estimation
+- [X] **Task 28**: Implement smart context reduction
+  - [X] If file > 500 lines: extract signatures only
+  - [X] If file < 500 lines: include full code
+  - [X] Calculate token count estimation
 
 ### 2.4 Output Format
 
-- [ ] **Task 29**: Create structured data model (Pydantic)
-  - Define `ScanResult` model
-  - Fields: file_path, functions, classes, imports, lines_of_code
+- [X] **Task 29**: Create structured data model (Pydantic)
+  - [X] Define `ScanResult` model with validation
+  - [X] Define `CodeFile` model with field descriptions
+  - [X] Fields: file_path, functions, classes, imports, lines_of_code, token_count
+  - [X] Add helper methods (get_summary, get_files_by_type, get_largest_files)
 
-- [ ] **Task 30**: Implement context summarization
-  - Create text summary for LLM consumption
-  - Include file structure tree
-  - Add metadata (project type, framework detected)
+- [X] **Task 30**: Implement context summarization
+  - [X] Create text summary for LLM consumption (get_llm_context)
+  - [X] Include file structure tree (get_file_tree)
+  - [X] Add metadata (project type, framework detected via detect_project_type)
 
 ### 2.5 Scanner Testing
 
-- [ ] **Task 31**: Create test fixtures
-  - Sample Python project with multiple files
-  - Sample JavaScript project
+- [X] **Task 31**: Create test fixtures
+  - [X] Sample Python project with multiple files (sample_module.py, utils.py)
+  - [X] Sample JavaScript project (sample.js, components.jsx)
+  - [X] Test fixtures documentation (README.md)
 
-- [ ] **Task 32**: Write unit tests for scanner
-  - Test directory traversal
-  - Test filtering logic
-  - Test extraction accuracy
-  - Test edge cases (empty files, syntax errors)
+- [X] **Task 32**: Write unit tests for scanner
+  - [X] Test directory traversal (3 tests)
+  - [X] Test filtering logic (4 tests)
+  - [X] Test extraction accuracy (7 tests)
+  - [X] Test edge cases (3 tests)
+  - [X] Test Pydantic models (3 tests)
+  - [X] Test LLM context generation (4 tests)
+  - [X] Integration tests (1 test)
+  - [X] **Total: 26 tests, all passing ✅**
 
 ---
 

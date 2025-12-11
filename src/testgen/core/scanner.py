@@ -9,8 +9,8 @@ optimized for LLM consumption.
 import ast
 from pathlib import Path
 from typing import Dict, List, Optional, Set
-from dataclasses import dataclass, field
 from enum import Enum
+from pydantic import BaseModel, Field
 
 from testgen.config import config
 
@@ -54,18 +54,34 @@ class FileType(str, Enum):
     UNKNOWN = "unknown"
 
 
-@dataclass
-class CodeFile:
-    """Represents a scanned code file."""
-    path: Path
-    relative_path: Path
-    file_type: FileType
-    size_bytes: int
-    line_count: int
-    functions: List[str] = field(default_factory=list)
-    classes: List[str] = field(default_factory=list)
-    imports: List[str] = field(default_factory=list)
-    content: Optional[str] = None
+
+
+class CodeFile(BaseModel):
+    """Represents a scanned code file with extracted metadata.
+    
+    This Pydantic model provides structured data for LLM consumption,
+    including code signatures, metadata, and optional full content.
+    """
+    
+    path: Path = Field(..., description="Absolute path to the file")
+    relative_path: Path = Field(..., description="Path relative to scan root")
+    file_type: FileType = Field(..., description="Detected file type/language")
+    size_bytes: int = Field(..., ge=0, description="File size in bytes")
+    line_count: int = Field(..., ge=0, description="Number of lines in file")
+    functions: List[str] = Field(default_factory=list, description="Extracted function/method signatures")
+    classes: List[str] = Field(default_factory=list, description="Extracted class definitions with methods")
+    imports: List[str] = Field(default_factory=list, description="Imported modules/packages")
+    content: Optional[str] = Field(None, description="Full file content (if small enough)")
+    token_count: int = Field(0, ge=0, description="Estimated token count for LLM")
+    context_level: str = Field("signatures", description="Context level: 'full' or 'signatures'")
+    
+    class Config:
+        arbitrary_types_allowed = True  # Allow Path objects
+        
+    def model_post_init(self, __context) -> None:
+        """Validate context_level after initialization."""
+        if self.context_level not in ("full", "signatures"):
+            raise ValueError(f"context_level must be 'full' or 'signatures', got: {self.context_level}")
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization."""
@@ -78,19 +94,40 @@ class CodeFile:
             "functions": self.functions,
             "classes": self.classes,
             "imports": self.imports,
-            "has_content": self.content is not None
+            "has_content": self.content is not None,
+            "token_count": self.token_count,
+            "context_level": self.context_level
         }
+    
+    def get_summary(self) -> str:
+        """Get a human-readable summary of this file."""
+        return (
+            f"{self.relative_path} ({self.file_type.value})\n"
+            f"  Lines: {self.line_count:,} | Tokens: {self.token_count:,}\n"
+            f"  Functions: {len(self.functions)} | Classes: {len(self.classes)}\n"
+            f"  Context: {self.context_level}"
+        )
 
 
-@dataclass
-class ScanResult:
-    """Results from a directory scan."""
-    root_path: Path
-    files: List[CodeFile] = field(default_factory=list)
-    total_files: int = 0
-    total_lines: int = 0
-    ignored_paths: Set[str] = field(default_factory=set)
-    errors: List[str] = field(default_factory=list)
+
+
+class ScanResult(BaseModel):
+    """Results from a directory scan.
+    
+    This Pydantic model aggregates all scanned files and provides
+    summary statistics for LLM context planning.
+    """
+    
+    root_path: Path = Field(..., description="Root directory that was scanned")
+    files: List[CodeFile] = Field(default_factory=list, description="List of scanned code files")
+    total_files: int = Field(0, ge=0, description="Total number of files scanned")
+    total_lines: int = Field(0, ge=0, description="Total lines of code across all files")
+    total_tokens: int = Field(0, ge=0, description="Estimated total tokens for LLM")
+    ignored_paths: Set[str] = Field(default_factory=set, description="Paths that were ignored during scan")
+    errors: List[str] = Field(default_factory=list, description="Errors encountered during scan")
+    
+    class Config:
+        arbitrary_types_allowed = True  # Allow Path and Set
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization."""
@@ -98,6 +135,7 @@ class ScanResult:
             "root_path": str(self.root_path),
             "total_files": self.total_files,
             "total_lines": self.total_lines,
+            "total_tokens": self.total_tokens,
             "files": [f.to_dict() for f in self.files],
             "ignored_paths": list(self.ignored_paths),
             "errors": self.errors
@@ -105,12 +143,233 @@ class ScanResult:
     
     def get_summary(self) -> str:
         """Get a human-readable summary."""
-        return (
-            f"Scanned {self.total_files} files\n"
-            f"Total lines: {self.total_lines:,}\n"
-            f"Ignored paths: {len(self.ignored_paths)}\n"
-            f"Errors: {len(self.errors)}"
-        )
+        # Calculate file type breakdown
+        file_types = {}
+        for f in self.files:
+            file_types[f.file_type.value] = file_types.get(f.file_type.value, 0) + 1
+        
+        summary = [
+            f"Scanned {self.total_files} files from {self.root_path}",
+            f"Total lines: {self.total_lines:,}",
+            f"Estimated tokens: {self.total_tokens:,}",
+            f"Ignored paths: {len(self.ignored_paths)}",
+            f"Errors: {len(self.errors)}",
+            "",
+            "File types:",
+        ]
+        
+        for file_type, count in sorted(file_types.items(), key=lambda x: x[1], reverse=True):
+            summary.append(f"  {file_type}: {count}")
+        
+        return "\n".join(summary)
+    
+    def get_files_by_type(self, file_type: FileType) -> List[CodeFile]:
+        """Get all files of a specific type."""
+        return [f for f in self.files if f.file_type == file_type]
+    
+    def get_largest_files(self, n: int = 10) -> List[CodeFile]:
+        """Get the n largest files by line count."""
+        return sorted(self.files, key=lambda f: f.line_count, reverse=True)[:n]
+    
+    def get_file_tree(self, max_depth: int = 3) -> str:
+        """
+        Generate a file structure tree for LLM context.
+        
+        Args:
+            max_depth: Maximum directory depth to show
+            
+        Returns:
+            String representation of file tree
+        """
+        from collections import defaultdict
+        
+        # Build tree structure
+        tree = defaultdict(list)
+        for file in self.files:
+            parts = file.relative_path.parts
+            if len(parts) <= max_depth:
+                parent = str(Path(*parts[:-1])) if len(parts) > 1 else "."
+                tree[parent].append(file.relative_path.name)
+        
+        # Format as tree
+        lines = [f"{self.root_path.name}/"]
+        
+        def add_dir(path: str, prefix: str = ""):
+            items = sorted(tree.get(path, []))
+            for i, item in enumerate(items):
+                is_last = i == len(items) - 1
+                connector = "└── " if is_last else "├── "
+                lines.append(f"{prefix}{connector}{item}")
+        
+        # Add root files
+        add_dir(".")
+        
+        return "\n".join(lines)
+    
+    def detect_project_type(self) -> Dict[str, any]:
+        """
+        Detect project type and framework from scanned files.
+        
+        Returns:
+            Dictionary with project metadata
+        """
+        metadata = {
+            "languages": [],
+            "frameworks": [],
+            "project_type": "unknown",
+            "has_tests": False,
+            "has_config": False
+        }
+        
+        # Detect languages
+        lang_counts = {}
+        for f in self.files:
+            lang = f.file_type.value
+            lang_counts[lang] = lang_counts.get(lang, 0) + 1
+        
+        # Primary language is most common
+        if lang_counts:
+            metadata["languages"] = sorted(lang_counts.items(), key=lambda x: x[1], reverse=True)
+            primary_lang = metadata["languages"][0][0]
+            
+            # Detect project type based on primary language
+            if primary_lang == ".py":
+                metadata["project_type"] = "Python"
+            elif primary_lang in (".js", ".jsx", ".ts", ".tsx"):
+                metadata["project_type"] = "JavaScript/TypeScript"
+            elif primary_lang == ".java":
+                metadata["project_type"] = "Java"
+            elif primary_lang in (".c", ".cpp", ".h", ".hpp"):
+                metadata["project_type"] = "C/C++"
+        
+        # Detect frameworks from imports
+        all_imports = []
+        for f in self.files:
+            all_imports.extend(f.imports)
+        
+        # Python frameworks
+        if "fastapi" in all_imports or "uvicorn" in all_imports:
+            metadata["frameworks"].append("FastAPI")
+        if "flask" in all_imports:
+            metadata["frameworks"].append("Flask")
+        if "django" in all_imports:
+            metadata["frameworks"].append("Django")
+        if "pytest" in all_imports:
+            metadata["frameworks"].append("pytest")
+            metadata["has_tests"] = True
+        if "pydantic" in all_imports:
+            metadata["frameworks"].append("Pydantic")
+        
+        # JavaScript frameworks
+        if "react" in all_imports or "react-dom" in all_imports:
+            metadata["frameworks"].append("React")
+        if "vue" in all_imports:
+            metadata["frameworks"].append("Vue")
+        if "express" in all_imports:
+            metadata["frameworks"].append("Express")
+        if "next" in all_imports:
+            metadata["frameworks"].append("Next.js")
+        
+        # Check for test files
+        test_patterns = ["test_", "_test", ".test.", ".spec."]
+        for f in self.files:
+            if any(pattern in str(f.relative_path) for pattern in test_patterns):
+                metadata["has_tests"] = True
+                break
+        
+        # Check for config files in ignored paths
+        config_patterns = ["package.json", "pyproject.toml", "pom.xml", "build.gradle"]
+        for ignored in self.ignored_paths:
+            if any(pattern in ignored for pattern in config_patterns):
+                metadata["has_config"] = True
+                break
+        
+        return metadata
+    
+    def get_llm_context(self, include_tree: bool = True, include_metadata: bool = True) -> str:
+        """
+        Generate optimized context summary for LLM consumption.
+        
+        This creates a comprehensive yet concise summary perfect for
+        feeding to an LLM for test generation or code analysis.
+        
+        Args:
+            include_tree: Include file structure tree
+            include_metadata: Include project metadata
+            
+        Returns:
+            Formatted string ready for LLM prompt
+        """
+        lines = [
+            "=" * 70,
+            "CODE REPOSITORY CONTEXT",
+            "=" * 70,
+            ""
+        ]
+        
+        # Project metadata
+        if include_metadata:
+            metadata = self.detect_project_type()
+            lines.append("PROJECT INFORMATION:")
+            lines.append(f"  Type: {metadata['project_type']}")
+            if metadata['languages']:
+                lang_list = ", ".join([f"{lang} ({count} files)" for lang, count in metadata['languages'][:3]])
+                lines.append(f"  Languages: {lang_list}")
+            if metadata['frameworks']:
+                lines.append(f"  Frameworks: {', '.join(metadata['frameworks'])}")
+            lines.append(f"  Has Tests: {'Yes' if metadata['has_tests'] else 'No'}")
+            lines.append("")
+        
+        # Statistics
+        lines.append("STATISTICS:")
+        lines.append(f"  Total Files: {self.total_files}")
+        lines.append(f"  Total Lines: {self.total_lines:,}")
+        lines.append(f"  Estimated Tokens: {self.total_tokens:,}")
+        lines.append("")
+        
+        # File structure
+        if include_tree:
+            lines.append("FILE STRUCTURE:")
+            lines.append(self.get_file_tree())
+            lines.append("")
+        
+        # Key files (largest/most important)
+        lines.append("KEY FILES:")
+        largest = self.get_largest_files(5)
+        for f in largest:
+            lines.append(f"  • {f.relative_path} ({f.line_count} lines, {len(f.functions)} functions, {len(f.classes)} classes)")
+        lines.append("")
+        
+        # Code overview by file type
+        lines.append("CODE OVERVIEW:")
+        file_types = {}
+        total_funcs = 0
+        total_classes = 0
+        
+        for f in self.files:
+            ft = f.file_type.value
+            if ft not in file_types:
+                file_types[ft] = {"files": 0, "lines": 0, "functions": 0, "classes": 0}
+            file_types[ft]["files"] += 1
+            file_types[ft]["lines"] += f.line_count
+            file_types[ft]["functions"] += len(f.functions)
+            file_types[ft]["classes"] += len(f.classes)
+            total_funcs += len(f.functions)
+            total_classes += len(f.classes)
+        
+        for ft, stats in sorted(file_types.items(), key=lambda x: x[1]["lines"], reverse=True):
+            lines.append(f"  {ft}: {stats['files']} files, {stats['lines']} lines, {stats['functions']} functions, {stats['classes']} classes")
+        
+        lines.append("")
+        lines.append(f"TOTAL: {total_funcs} functions/methods, {total_classes} classes")
+        lines.append("")
+        
+        lines.append("=" * 70)
+        lines.append("This context is optimized for LLM consumption.")
+        lines.append("Use this information to understand the codebase structure.")
+        lines.append("=" * 70)
+        
+        return "\n".join(lines)
 
 
 class CodeScanner:
@@ -137,6 +396,30 @@ class CodeScanner:
         self.supported_extensions = config.supported_extensions
         self.max_file_size_lines = config.max_file_size_lines
         self.include_config_files = include_config_files
+        
+        # Smart context reduction threshold
+        self.CONTEXT_THRESHOLD = 500  # lines
+    
+    def _estimate_tokens(self, text: str) -> int:
+        """
+        Estimate the number of tokens in text.
+        Uses a simple heuristic: ~4 characters per token for code.
+        
+        Args:
+            text: The text to estimate
+            
+        Returns:
+            Estimated token count
+        """
+        if not text:
+            return 0
+        
+        # Simple estimation: divide character count by 4
+        # This is approximate but good enough for context planning
+        char_count = len(text)
+        estimated_tokens = char_count // 4
+        
+        return estimated_tokens
     
     def scan_directory(self, path: str | Path) -> ScanResult:
         """
@@ -260,13 +543,41 @@ class CodeScanner:
                         code_file.classes = tables  # Store tables as "classes"
                         code_file.imports = []
                     
-                    # Store content if file is small enough
-                    if line_count <= self.max_file_size_lines:
-                        code_file.content = content
+                    # SMART CONTEXT REDUCTION (Task 28)
+                    # Apply 500-line threshold for context optimization
+                    if line_count > self.CONTEXT_THRESHOLD:
+                        # Large file: signatures only
+                        code_file.context_level = "signatures"
+                        # Don't store full content for large files
+                        code_file.content = None
+                        
+                        # Estimate tokens from signatures
+                        signature_text = "\n".join(
+                            code_file.functions + code_file.classes + code_file.imports
+                        )
+                        code_file.token_count = self._estimate_tokens(signature_text)
+                        
+                    else:
+                        # Small file: include full content
+                        code_file.context_level = "full"
+                        
+                        # Store full content for small files
+                        if line_count <= self.max_file_size_lines:
+                            code_file.content = content
+                            # Estimate tokens from full content
+                            code_file.token_count = self._estimate_tokens(content)
+                        else:
+                            # File is between threshold and max size - use signatures
+                            code_file.content = None
+                            signature_text = "\n".join(
+                                code_file.functions + code_file.classes + code_file.imports
+                            )
+                            code_file.token_count = self._estimate_tokens(signature_text)
                     
                     # Add to results
                     result.files.append(code_file)
                     result.total_lines += line_count
+                    result.total_tokens += code_file.token_count
                     
                 except Exception as e:
                     # Log error but continue scanning
