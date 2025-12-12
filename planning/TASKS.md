@@ -236,15 +236,19 @@
 
 ### 3.1 LLM Core Setup
 
-- [ ] **Task 33**: Create `src/testgen/core/llm.py`
-  - Define `LLMClient` class
-  - Initialize LiteLLM with configuration
+- [X] **Task 33**: Create `src/testgen/core/llm.py`
+  - [X] Define `LLMClient` class
+  - [X] Initialize LiteLLM with configuration
+  - [X] Implement direct Gemini SDK integration
+  - [X] Add async support
+  - [X] Token tracking and cost estimation
 
-- [ ] **Task 34**: Implement model selection logic
-  - Support OpenAI (GPT-3.5, GPT-4)
-  - Support Anthropic (Claude)
-  - Support Ollama (local models)
-  - Allow model switching via config
+- [X] **Task 34**: Implement model selection logic
+  - [X] Support OpenAI (GPT-3.5, GPT-4)
+  - [X] Support Anthropic (Claude)
+  - [X] Support Gemini (2.5 Flash, 2.5 Pro)
+  - [X] Support Ollama (local models)
+  - [X] Allow model switching via config (.env)
 
 ### 3.2 Prompt Engineering
 

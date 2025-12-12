@@ -18,6 +18,7 @@ class LLMProvider(str, Enum):
     
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+    GEMINI = "gemini"
     OLLAMA = "ollama"
 
 
@@ -56,14 +57,19 @@ class Config(BaseSettings):
         description="Anthropic API key for Claude models"
     )
     
+    gemini_api_key: Optional[str] = Field(
+        default=None,
+        description="Google Gemini API key"
+    )
+    
     llm_provider: LLMProvider = Field(
-        default=LLMProvider.OPENAI,
-        description="LLM provider to use (openai, anthropic, ollama)"
+        default=LLMProvider.GEMINI,
+        description="LLM provider to use (openai, anthropic, gemini, ollama)"
     )
     
     llm_model: str = Field(
-        default="gpt-4",
-        description="Specific model to use (e.g., gpt-4, gpt-3.5-turbo, claude-3, ollama/codellama)"
+        default="gemini-2.5-flash",
+        description="Specific model to use (e.g., gpt-4, claude-3, gemini-2.5-flash, ollama/codellama)"
     )
     
     max_context_tokens: int = Field(
@@ -204,6 +210,12 @@ class Config(BaseSettings):
                 "Anthropic API key is required when using Anthropic provider. "
                 "Set ANTHROPIC_API_KEY environment variable."
             )
+        
+        if self.llm_provider == LLMProvider.GEMINI and not self.gemini_api_key:
+            raise ValueError(
+                "Gemini API key is required when using Gemini provider. "
+                "Set GEMINI_API_KEY environment variable."
+            )
     
     def get_api_key(self) -> Optional[str]:
         """Get the appropriate API key based on the selected provider."""
@@ -211,6 +223,8 @@ class Config(BaseSettings):
             return self.openai_api_key
         elif self.llm_provider == LLMProvider.ANTHROPIC:
             return self.anthropic_api_key
+        elif self.llm_provider == LLMProvider.GEMINI:
+            return self.gemini_api_key
         else:  # Ollama doesn't need an API key
             return None
     
