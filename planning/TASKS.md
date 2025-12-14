@@ -328,27 +328,37 @@
 
 ### 3.5 Cost Optimization
 
-- [ ] **Task 43**: Implement token counting
-  - Estimate tokens before API call
-  - Warn if context too large
-  - Implement context truncation if needed
+- [X] **Task 43**: Implement token counting
+  - [X] Estimate tokens before API call
+  - [X] Warn if context too large
+  - [X] Implement context truncation if needed
+  - [X] Create TokenCounter class
+  - [X] Support multiple models
+  - [X] Cost estimation
 
-- [ ] **Task 44**: Implement caching
-  - Cache scan results to avoid re-analysis
-  - Cache LLM responses for identical inputs
-  - Use file hash as cache key
+- [X] **Task 44**: Implement caching
+  - [X] Cache scan results to avoid re-analysis
+  - [X] Cache LLM responses for identical inputs
+  - [X] Use file hash as cache key
+  - [X] Create CacheManager class
+  - [X] TTL-based expiration
+  - [X] Statistics tracking
 
 ### 3.6 LLM Testing
 
-- [ ] **Task 45**: Create mock LLM for testing
-  - Mock LiteLLM responses
-  - Test prompt construction
-  - Test response parsing
+- [X] **Task 45**: Create mock LLM for testing
+  - [X] Mock LiteLLM responses
+  - [X] Test prompt construction
+  - [X] Test response parsing
+  - [X] Create MockLLM class
+  - [X] Call tracking and statistics
 
-- [ ] **Task 46**: Integration tests with real API
-  - Test with actual OpenAI/Ollama
-  - Verify generated tests are valid
-  - Verify tests can actually run
+- [X] **Task 46**: Integration tests with real API
+  - [X] Test with actual OpenAI/Ollama/Gemini
+  - [X] Verify generated tests are valid
+  - [X] Verify tests can actually run
+  - [X] End-to-end pipeline testing
+  - [X] Mock and real API support
 
 ---
 
