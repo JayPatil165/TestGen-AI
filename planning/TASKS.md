@@ -309,15 +309,22 @@
 
 ### 3.4 Test File Generation
 
-- [ ] **Task 41**: Implement file writer
-  - Create method: `save_test_file(code: str, output_path: str)`
-  - Auto-create `tests/` directory if not exists
-  - Use naming convention: `test_<original_file>.py`
+- [X] **Task 41**: Implement file writer
+  - [X] Create method: `save_test_file(code: str, output_path: str)`
+  - [X] Auto-create `tests/` directory if not exists
+  - [X] Use naming convention: `test_<original_file>.py`
+  - [X] Create TestFileWriter class
+  - [X] Add batch saving support
+  - [X] File headers and backups
+  - [X] Test structure creation
 
-- [ ] **Task 42**: Implement smart merging
-  - If test file exists, merge new tests
-  - Avoid duplicates
-  - Preserve manually written tests
+- [X] **Task 42**: Implement smart merging
+  - [X] If test file exists, merge new tests
+  - [X] Avoid duplicates
+  - [X] Preserve manually written tests
+  - [X] Create TestMerger class
+  - [X] AST-based test extraction
+  - [X] Duplicate detection
 
 ### 3.5 Cost Optimization
 
