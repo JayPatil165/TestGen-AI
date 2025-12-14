@@ -252,38 +252,60 @@
 
 ### 3.2 Prompt Engineering
 
-- [ ] **Task 35**: Create prompt templates directory
-  - Create `src/testgen/prompts/` folder
-  - Create `test_generation.txt` template
+- [X] **Task 35**: Create prompt templates directory
+  - [X] Create `src/testgen/prompts/` folder
+  - [X] Create `test_generation.txt` template
+  - [X] Create `system_instruction.txt` template
+  - [X] Create `few_shot_examples.txt` template
+  - [X] Create prompt management module (`__init__.py`)
+  - [X] Create README documentation
 
-- [ ] **Task 36**: Design test generation prompt
-  - Include system instruction
-  - Include code context placeholder
-  - Specify output format (pytest code)
-  - Add examples (few-shot learning)
+- [X] **Task 36**: Design test generation prompt
+  - [X] Include system instruction
+  - [X] Include code context placeholder
+  - [X] Specify output format (pytest code)
+  - [X] Add examples (few-shot learning)
+  - [X] Create TestPromptGenerator class
+  - [X] Integrate with scanner
+  - [X] End-to-end workflow verified
 
-- [ ] **Task 37**: Implement prompt builder
-  - Create method: `build_prompt(scan_result: ScanResult) -> str`
-  - Insert code context into template
-  - Add framework-specific instructions (pytest/unittest)
+- [X] **Task 37**: Implement prompt builder
+  - [X] Create method: `build_prompt(scan_result: ScanResult) -> str`
+  - [X] Insert code context into template
+  - [X] Add framework-specific instructions (pytest/unittest)
+  - [X] Create AdvancedPromptBuilder class
+  - [X] Add batch processing support
+  - [X] Add statistics tracking
 
 ### 3.3 LLM Response Handling
 
-- [ ] **Task 38**: Implement API call with retry logic
-  - Create method: `generate_tests(prompt: str) -> str`
-  - Add exponential backoff
-  - Handle rate limits
-  - Timeout handling
+- [X] **Task 38**: Implement API call with retry logic
+  - [X] Create method: `generate_tests(prompt: str) -> str`
+  - [X] Add exponential backoff
+  - [X] Handle rate limits
+  - [X] Timeout handling
+  - [X] Create TestGenerator class
+  - [X] Add RetryConfig and RateLimitConfig
+  - [X] Statistics tracking
+  - [X] Async support
 
-- [ ] **Task 39**: Implement response validation (Pydantic)
-  - Define expected output schema
-  - Validate LLM returns valid Python code
-  - Extract code from markdown blocks if needed
+- [X] **Task 39**: Implement response validation (Pydantic)
+  - [X] Define expected output schema
+  - [X] Validate LLM returns valid Python code
+  - [X] Extract code from markdown blocks if needed
+  - [X] Create TestCodeValidation Pydantic model
+  - [X] Create ResponseValidator class
+  - [X] Add syntax validation (AST parsing)
+  - [X] Add code quality checks
+  - [X] Batch validation support
 
-- [ ] **Task 40**: Implement code sanitization
-  - Remove unsafe imports (os.system, eval)
-  - Verify syntax validity
-  - Add required imports if missing
+- [X] **Task 40**: Implement code sanitization
+  - [X] Remove unsafe imports (os.system, eval)
+  - [X] Verify syntax validity
+  - [X] Add required imports if missing
+  - [X] Create CodeSanitizer class
+  - [X] Add batch sanitization support
+  - [X] Statistics tracking
 
 ### 3.4 Test File Generation
 

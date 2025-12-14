@@ -1,0 +1,162 @@
+# Few-Shot Examples for Test Generation
+
+These examples demonstrate the expected test generation pattern.
+
+## Example 1: Simple Function
+
+### Input Code:
+```python
+def add(a: int, b: int) -> int:
+    """Add two numbers."""
+    return a + b
+```
+
+### Generated Tests:
+```python
+import pytest
+
+def test_add_positive_numbers():
+    """Test adding two positive numbers."""
+    result = add(2, 3)
+    assert result == 5
+
+def test_add_negative_numbers():
+    """Test adding two negative numbers."""
+    result = add(-2, -3)
+    assert result == -5
+
+def test_add_mixed_signs():
+    """Test adding positive and negative numbers."""
+    result = add(5, -3)
+    assert result == 2
+
+def test_add_with_zero():
+    """Test adding with zero."""
+    assert add(5, 0) == 5
+    assert add(0, 5) == 5
+    assert add(0, 0) == 0
+```
+
+## Example 2: Class with Methods
+
+### Input Code:
+```python
+class Calculator:
+    """Simple calculator class."""
+    
+    def __init__(self):
+        self.result = 0
+    
+    def add(self, value: int) -> int:
+        """Add value to result."""
+        self.result += value
+        return self.result
+    
+    def reset(self) -> None:
+        """Reset result to zero."""
+        self.result = 0
+```
+
+### Generated Tests:
+```python
+import pytest
+
+class TestCalculator:
+    """Test suite for Calculator class."""
+    
+    @pytest.fixture
+    def calculator(self):
+        """Provide a fresh Calculator instance."""
+        return Calculator()
+    
+    def test_init(self, calculator):
+        """Test Calculator initialization."""
+        assert calculator.result == 0
+    
+    def test_add_single_value(self, calculator):
+        """Test adding a single value."""
+        result = calculator.add(5)
+        assert result == 5
+        assert calculator.result == 5
+    
+    def test_add_multiple_values(self, calculator):
+        """Test adding multiple values."""
+        calculator.add(5)
+        calculator.add(3)
+        result = calculator.add(2)
+        assert result == 10
+        assert calculator.result == 10
+    
+    def test_add_negative_value(self, calculator):
+        """Test adding negative values."""
+        calculator.add(10)
+        result = calculator.add(-3)
+        assert result == 7
+    
+    def test_reset(self, calculator):
+        """Test reset functionality."""
+        calculator.add(10)
+        calculator.reset()
+        assert calculator.result == 0
+    
+    def test_reset_when_already_zero(self, calculator):
+        """Test reset when result is already zero."""
+        calculator.reset()
+        assert calculator.result == 0
+```
+
+## Example 3: Function with Error Handling
+
+### Input Code:
+```python
+def divide(a: float, b: float) -> float:
+    """Divide a by b."""
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+```
+
+### Generated Tests:
+```python
+import pytest
+
+def test_divide_positive_numbers():
+    """Test dividing positive numbers."""
+    result = divide(10, 2)
+    assert result == 5.0
+
+def test_divide_negative_numbers():
+    """Test dividing negative numbers."""
+    result = divide(-10, -2)
+    assert result == 5.0
+
+def test_divide_mixed_signs():
+    """Test dividing with mixed signs."""
+    result = divide(10, -2)
+    assert result == -5.0
+
+def test_divide_by_zero_raises_error():
+    """Test that dividing by zero raises ValueError."""
+    with pytest.raises(ValueError, match="Cannot divide by zero"):
+        divide(10, 0)
+
+def test_divide_zero_by_number():
+    """Test dividing zero by a number."""
+    result = divide(0, 5)
+    assert result == 0.0
+
+def test_divide_floats():
+    """Test dividing float numbers."""
+    result = divide(7.5, 2.5)
+    assert result == 3.0
+```
+
+## Pattern Summary:
+
+1. **Use descriptive names**: test_function_scenario
+2. **Add docstrings**: Explain what each test validates
+3. **Follow AAA**: Arrange, Act, Assert
+4. **Use fixtures**: For shared setup
+5. **Test errors**: Use pytest.raises
+6. **Cover edge cases**: Zero, negative, None, empty
+7. **Organize well**: Group related tests in classes

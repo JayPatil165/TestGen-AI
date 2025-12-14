@@ -37,6 +37,7 @@ Thumbs.db
 *.log
 *.txt
 !requirements.txt
+!src/testgen/prompts/*.txt
 *.pdf
 *.html
 
