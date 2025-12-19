@@ -366,21 +366,57 @@
 
 ### 4.1 Runner Core Implementation
 
-- [ ] **Task 47**: Create `src/testgen/core/runner.py`
-  - Define `TestRunner` class
-  - Add method: `run_tests(test_dir: str) -> TestResults`
+- [X] **Task 47**: Create `src/testgen/core/runner.py`
+  - [X] Define `TestRunner` class
+  - [X] Add method: `run_tests(test_dir: str) -> TestResults`
+  - [X] Create TestResults dataclass
+  - [X] Pytest subprocess execution
+  - [X] Output parsing
 
-- [ ] **Task 48**: Implement test discovery
-  - Find all test files matching pattern (`test_*.py`)
-  - Support custom test patterns
-  - Count total tests before execution
+- [X] **Task 48**: Implement test discovery
+  - [X] Find all test files matching pattern (`test_*.py`)
+  - [X] Support custom test patterns
+  - [X] Count total tests before execution
+  - [X] Recursive directory search
+  - [X] AST-based test counting
 
 ### 4.2 Pytest Integration
 
-- [ ] **Task 49**: Implement pytest subprocess execution
-  - Use `subprocess.run()` to execute pytest
-  - Pass arguments: `--json-report`, `--tb=short`
-  - Capture stdout and stderr
+- [X] **Task 49**: Implement pytest subprocess execution
+  - [X] Use `subprocess.run()` to execute pytest
+  - [X] Pass arguments: `--json-report`, `--tb=short`
+  - [X] Capture stdout and stderr
+  - [X] Timeout handling
+  - [X] JSON report parsing
+
+### 4.3 Multi-Language Support
+
+- [X] **Task 49.1**: Create language detector
+  - [X] Detect Python, JavaScript, TypeScript, Java, Go, C#, Ruby
+  - [X] Detect test frameworks (pytest, Jest, JUnit, etc.)
+  - [X] Auto-detection from project files
+
+- [X] **Task 49.2**: Create base runner interface
+  - [X] Define BaseTestRunner abstract class
+  - [X] Common TestResults format
+  - [X] Language-agnostic interface
+
+- [X] **Task 49.3**: Create PythonTestRunner
+  - [X] Refactor existing runner.py
+  - [X] Inherit from BaseTestRunner
+  - [X] pytest-specific implementation
+
+- [X] **Task 49.4**: Create JavaScriptTestRunner
+  - [X] Jest-based implementation
+  - [X] TypeScript support
+  - [X] JSON output parsing
+
+- [X] **Task 49.5**: Create RunnerFactory
+  - [X] Auto-detect language
+  - [X] Create appropriate runner
+  - [X] Extensible architecture
+
+### 4.4 Result Parsing
 
 - [ ] **Task 50**: Parse pytest JSON output
   - Use `pytest-json-report` plugin
