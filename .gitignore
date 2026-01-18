@@ -40,6 +40,7 @@ Thumbs.db
 !src/testgen/prompts/*.txt
 *.pdf
 *.html
+!templates/*.html
 
 # Temporary files
 tmp/

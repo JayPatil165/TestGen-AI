@@ -1,19 +1,17 @@
 """
-UI module for TestGen AI.
+TestGen-AI UI module.
 
-This module contains user interface components for:
-- Terminal output formatting and color-coded matrices (Rich library)
-- Test result visualization
-- HTML/PDF report generation (Jinja2 templates)
-- Progress indicators and spinners
+Exports terminal printer and report generator functionality.
 """
 
 from .printer import TerminalPrinter, create_printer, RICH_AVAILABLE
+from .reporter import ReportGenerator, ExecutionSummary, create_reporter
 
 __all__ = [
-    "TerminalPrinter",
-    "create_printer",
-    "RICH_AVAILABLE",
-    # More components will be added as we implement them
-    # "reporter",
+    'TerminalPrinter',
+    'create_printer',
+    'RICH_AVAILABLE',
+    'ReportGenerator',
+    'ExecutionSummary',
+    'create_reporter',
 ]
