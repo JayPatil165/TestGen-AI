@@ -1,2 +1,2 @@
-w[console_scripts]
+[console_scripts]
 testgen = testgen.main:app

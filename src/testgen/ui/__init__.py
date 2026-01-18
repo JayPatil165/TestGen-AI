@@ -8,8 +8,12 @@ This module contains user interface components for:
 - Progress indicators and spinners
 """
 
+from .printer import TerminalPrinter, create_printer, RICH_AVAILABLE
+
 __all__ = [
-    # Will be populated as we implement each module
-    # "printer",
+    "TerminalPrinter",
+    "create_printer",
+    "RICH_AVAILABLE",
+    # More components will be added as we implement them
     # "reporter",
 ]
