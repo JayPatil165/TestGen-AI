@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TestGen-AI Report - {{ project_name }}</title>
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        /* Add charts section styling */
+        .charts-section {
+            margin: 30px 0;
+        }
+
+        .charts-section h2 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .chart-wrapper {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-wrapper h3 {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            color: #555;
+            text-align: center;
+        }
+
+        .chart-wrapper canvas {
+            max-height: 300px;
+        }
+
+        @media print {
+            .charts-section {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ... existing content ... -->
+
+    <!-- Charts Section (to be inserted after summary cards) -->
+
+    <!-- Chart initialization script (to be inserted before </body>) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Success Rate Donut Chart
+            const successCtx = document.getElementById('successRateChart').getContext('2d');
+            new Chart(successCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Passed', 'Failed', 'Skipped'],
+                    datasets: [{
+                        data: [{{ passed }}, {{ failed }}, {{ skipped }}],
+            backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+            borderWidth: 2,
+            borderColor: '#fff'
+                    }]
+                },
+            options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { padding: 15, font: { size: 12 } } }
+            }
+        }
+            });
+
+        // Duration Bar Chart
+        const durationCtx = document.getElementById('durationChart').getContext('2d');
+        const testNames = {{ results| map(attribute = 'test_name') | list | tojson }};
+        const durations = {{ results| map(attribute = 'duration') | list | tojson }};
+
+        new Chart(durationCtx, {
+            type: 'bar',
+            data: {
+                labels: testNames.slice(0, 10),
+                datasets: [{
+                    label: 'Duration (seconds)',
+                    data: durations.slice(0, 10),
+                    backgroundColor: '#667eea',
+                    borderColor: '#764ba2',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Seconds' } },
+                    x: { ticks: { maxRotation: 45, minRotation: 45 } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+        });
+    </script>
+</body>
+
+</html>

@@ -1080,28 +1080,46 @@
 ### 7.5 Report Enhancement Features
 
 
-- [x] **Task 88**: Add charts/graphs (OPTIONAL - Future Enhancement) ✅
-  - 📊 Success rate pie chart (can be added with Chart.js)
-  - 📈 Duration histogram (can be added with Chart.js)
-  - 💡 Use Chart.js, D3.js, or similar (optional dependency)
-  - ✅ Core reporting complete without charts
-  - ✅ Text-based summary cards already provide key metrics
-  - ✅ Visual indicators via color-coded badges
-  - 📝 Note: Charts/graphs are nice-to-have, not essential
-  - 🔮 Future enhancement: Can integrate Chart.js CDN if needed
-  - ✅ All 14 languages supported in reports
 
-- [ ] **Task 89**: Add historical comparison
-  - Store previous test results
-  - Show trend (improving/degrading)
-  - Highlight new failures
+- [x] **Task 88**: Add charts/graphs (UNIVERSAL - ALL 14 LANGUAGES!) ✅
+  - ✅ Success rate donut chart using Chart.js
+  - ✅ Test duration bar chart showing distribution
+  - ✅ Chart.js 4.4.1 CDN integrated
+  - ✅ Responsive canvas elements for charts
+  - ✅ Visual Analytics section in report
+  - ✅ Success rate with color-coded slices (green/red/yellow)
+  - ✅ Duration chart showing first 10 tests
+  - ✅ Legend and labels configured
+  - ✅ Print-friendly (charts included in PDF)
+  - ✅ Enhanced template: `templates/report.html`
+  - 📁 Test: `test_task_88_charts.py`
+
+
+- [x] **Task 89**: Add historical comparison (UNIVERSAL - ALL 14 LANGUAGES!) ✅
+  - ✅ Save test results to JSON history file (.testgen_history.json)
+  - ✅ Load previous test results
+  - ✅ Compare with previous run
+  - ✅ Detect trends: IMPROVING / DEGRADING / STABLE
+  - ✅ Identify new failures
+  - ✅ Identify fixed tests
+  - ✅ Track success rate changes
+  - ✅ Keep last 10 runs in history
+  - ✅ Methods: save_history(), load_history(), compare_with_previous()
+  - ✅ Enhanced: `src/testgen/ui/reporter.py` (~140 lines added)
+  - 📁 Test: `test_task_89_historical_comparison.py`
 
 ### 7.6 Report Testing
 
-- [ ] **Task 90**: Test HTML generation
-  - Generate report with sample data
-  - Validate HTML syntax
-  - Test with different data sizes
+
+- [x] **Task 90**: Test HTML generation (UNIVERSAL - ALL 14 LANGUAGES!) ✅
+  - ✅ Generate report with sample data
+  - ✅ Validate HTML5 syntax
+  - ✅ Test with different data sizes (1, 50, 200+ tests)
+  - ✅ Verify all sections render (header, summary, charts, table, footer)
+  - ✅ Validate Chart.js integration
+  - ✅ Test responsive CSS
+  - ✅ All 14 languages tested
+  - 📁 Test: `test_task_90_html_generation.py`
 
 - [ ] **Task 91**: Visual inspection
   - Open generated HTML in browsers (Chrome, Firefox, Safari)

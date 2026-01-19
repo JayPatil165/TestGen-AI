@@ -526,6 +526,146 @@ class ReportGenerator:
             raise IOError(f"Failed to write report to {output_path}: {e}")
         
         return str(output_file.absolute())
+    
+    def save_history(
+        self,
+        results: ExecutionSummary,
+        history_file: str = ".testgen_history.json"
+    ) -> None:
+        """
+        Save current test results to history file.
+        
+        Args:
+            results: ExecutionSummary to save
+            history_file: Path to history file
+        """
+        import json
+        from datetime import datetime
+        
+        history_path = Path(history_file)
+        
+        # Load existing history
+        history = []
+        if history_path.exists():
+            try:
+                with history_path.open('r') as f:
+                    history = json.load(f)
+            except:
+                history = []
+        
+        # Add current results
+        history_entry = {
+            'timestamp': datetime.now().isoformat(),
+            'project_name': results.project_name,
+            'language': results.language,
+            'total': results.total,
+            'passed': results.passed,
+            'failed': results.failed,
+            'skipped': results.skipped,
+            'duration': results.duration,
+            'success_rate': results.success_rate,
+            'results': results.results
+        }
+        
+        history.append(history_entry)
+        
+        # Keep last 10 runs
+        history = history[-10:]
+        
+        # Save history
+        with history_path.open('w') as f:
+            json.dump(history, f, indent=2)
+    
+    def load_history(
+        self,
+        history_file: str = ".testgen_history.json"
+    ) -> List[Dict[str, Any]]:
+        """
+        Load historical test results.
+        
+        Args:
+            history_file: Path to history file
+            
+        Returns:
+            List of historical results
+        """
+        import json
+        
+        history_path = Path(history_file)
+        if not history_path.exists():
+            return []
+        
+        try:
+            with history_path.open('r') as f:
+                return json.load(f)
+        except:
+            return []
+    
+    def compare_with_previous(
+        self,
+        current: ExecutionSummary,
+        history_file: str = ".testgen_history.json"
+    ) -> Dict[str, Any]:
+        """
+        Compare current results with previous run.
+        
+        Args:
+            current: Current ExecutionSummary
+            history_file: Path to history file
+            
+        Returns:
+            Comparison dictionary with trends and new failures
+        """
+        history = self.load_history(history_file)
+        
+        if not history:
+            return {
+                'has_previous': False,
+                'trend': 'UNKNOWN',
+                'new_failures': [],
+                'fixed_tests': [],
+                'success_rate_change': 0.0
+            }
+        
+        # Get previous run
+        previous = history[-1]
+        
+        # Calculate trend
+        current_rate = current.success_rate
+        prev_rate = previous['success_rate']
+        rate_change = current_rate - prev_rate
+        
+        if rate_change > 5:
+            trend = 'IMPROVING'
+        elif rate_change < -5:
+            trend = 'DEGRADING'
+        else:
+            trend = 'STABLE'
+        
+        # Find new failures
+        prev_failed_tests = {
+            r['test_name'] for r in previous.get('results', [])
+            if r.get('status') == 'FAIL'
+        }
+        current_failed_tests = {
+            r['test_name'] for r in current.results
+            if r.get('status') == 'FAIL'
+        }
+        
+        new_failures = list(current_failed_tests - prev_failed_tests)
+        fixed_tests = list(prev_failed_tests - current_failed_tests)
+        
+        return {
+            'has_previous': True,
+            'trend': trend,
+            'new_failures': new_failures,
+            'fixed_tests': fixed_tests,
+            'success_rate_change': rate_change,
+            'previous_passed': previous['passed'],
+            'previous_failed': previous['failed'],
+            'previous_rate': prev_rate
+        }
+
 
 
 # Factory function
