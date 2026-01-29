@@ -111,7 +111,11 @@ class TestRunnerFactory:
         
         else:
             # Default to Python for unknown languages
-            print(f"Warning: Unknown language '{language}', defaulting to Python runner")
+            if verbose:
+                if language == Language.UNKNOWN:
+                    print(f"⚠️  Language not detected, defaulting to Python runner")
+                else:
+                    print(f"⚠️  Language '{language.value if hasattr(language, 'value') else language}' not yet supported, defaulting to Python runner")
             return PythonTestRunner(verbose=verbose)
     
     def get_supported_languages(self) -> list:

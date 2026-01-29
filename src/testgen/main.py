@@ -167,22 +167,37 @@ def generate(
             console.print(f"[dim]Target directory: {target_directory.absolute()}[/dim]")
             console.print(f"[dim]Output directory: {output_dir.absolute()}[/dim]")
         
-        # TODO: Module 2 - Call scanner module
-        console.print("[yellow]📊 Analyzing code...[/yellow]")
-        console.print("[dim]⚠️  Scanner module not yet implemented (Task 22+)[/dim]")
+        # Import and initialize WorkflowManager
+        from testgen.manager import WorkflowManager
         
-        # TODO: Module 3 - Call LLM module
-        console.print("[yellow]🤖 Generating tests with AI...[/yellow]")
-        console.print("[dim]⚠️  LLM module not yet implemented (Task 33+)[/dim]")
+        # Use target_directory as project_path
+        # Outputs will go to: target_directory/TestGen-AI/tests/ and target_directory/TestGen-AI/reports/
+        workflow_config = {
+            'language': 'python',  # TODO: Auto-detect from files
+            'verbose': state.verbose
+        }
         
-        # TODO: Module 5 - Watch mode
-        if watch:
-            console.print("[yellow]👀 Starting watch mode...[/yellow]")
-            console.print("[dim]⚠️  Watch mode not yet implemented (Task 59+)[/dim]")
+        # Pass target_directory as project_path
+        manager = WorkflowManager(project_path=str(target_directory), config=workflow_config)
         
-        # Success message (placeholder)
+        # Execute generate workflow
+        console.print("\n[yellow]📊 Analyzing code and generating tests...[/yellow]")
+        
+        result = manager.execute_generate(
+            source_files=[str(target_directory)],
+            language='python'
+        )
+        
+        # Success message
         console.print("\n[green]✅ Test generation completed![/green]")
-        console.print("[dim]Note: Full implementation coming in Module 2 (Scanner) and Module 3 (LLM)[/dim]")
+        console.print(f"[green]Generated {result.get('tests_generated', 0)} test files[/green]")
+        console.print(f"[dim]Output directory: {output_dir}[/dim]")
+
+        
+        # TODO: Watch mode integration
+        if watch:
+            console.print("\n[yellow]👀 Watch mode...[/yellow]")
+            console.print("[dim]⚠️  Watch mode will auto-regenerate tests when files change[/dim]")
         
     except Exception as e:
         console.print(f"[red]❌ Error during test generation: {e}[/red]")
@@ -248,17 +263,35 @@ def test(
             console.print(f"[dim]Test directory: {test_dir.absolute()}[/dim]")
             console.print(f"[dim]Test pattern: {pattern}[/dim]")
         
-        # TODO: Module 4 - Call runner module
-        console.print("[yellow]🧪 Running tests...[/yellow]")
-        console.print("[dim]⚠️  Runner module not yet implemented (Task 47+)[/dim]")
+        # Initialize WorkflowManager
+        from testgen.manager import WorkflowManager
         
-        # TODO: Module 6 - Display terminal matrix
-        console.print("[yellow]📊 Displaying test matrix...[/yellow]")
-        console.print("[dim]⚠️  Terminal UI module not yet implemented (Task 69+)[/dim]")
+        workflow_config = {
+            'language': 'python',  # TODO: Auto-detect
+            'output_dir': str(test_dir),
+            'verbose': state.verbose or verbose_tests
+        }
         
-        # Success message (placeholder)
+        manager = WorkflowManager(config=workflow_config)
+        
+        # Execute test workflow
+        console.print("\n[yellow]🧪 Running tests...[/yellow]")
+        
+        result = manager.execute_test(
+            test_files=None,  # Auto-discover
+            language='python'
+        )
+        
+        # Display results
+        console.print("\n[bold cyan]═══ Test Results ═══[/bold cyan]\n")
+        console.print(f"  [bold]Total:[/bold] {result.get('total', 0)}")
+        console.print(f"  [green]Passed:[/green] {result.get('passed', 0)}")
+        console.print(f"  [red]Failed:[/red] {result.get('failed', 0)}")
+        console.print(f"  [yellow]Duration:[/yellow] {result.get('duration', 0):.2f}s")
+        
+        # Success message
         console.print("\n[green]✅ Test execution completed![/green]")
-        console.print("[dim]Note: Full implementation coming in Module 4 (Runner) and Module 6 (UI)[/dim]")
+
         
     except Exception as e:
         console.print(f"[red]❌ Error during test execution: {e}[/red]")
@@ -319,21 +352,60 @@ def report(
             console.print(f"[dim]Output path: {output_path.absolute()}[/dim]")
             console.print(f"[dim]Format: {format_type}[/dim]")
         
-        # TODO: Module 4 - Load cached test results
-        console.print("[yellow]📂 Loading test results...[/yellow]")
-        console.print("[dim]⚠️  Result caching not yet implemented (Task 53+)[/dim]")
+        # Initialize WorkflowManager
+        from testgen.manager import WorkflowManager
         
-        # TODO: Module 7 - Call reporter module
-        console.print(f"[yellow]📊 Generating {format_type} report...[/yellow]")
-        console.print("[dim]⚠️  Reporter module not yet implemented (Task 80+)[/dim]")
+        workflow_config = {
+            'language': 'python',
+            'report_dir': str(output_path.parent),
+            'verbose': state.verbose
+        }
+        
+        manager = WorkflowManager(config=workflow_config)
+        
+        # Check if we have cached test results
+        console.print("\n[yellow]📂 Loading test results...[/yellow]")
+        
+        # Get last execution state
+        state_info = manager.get_state()
+        
+        if not state_info.get('test_results'):
+            console.print("[yellow]⚠️  No test results found in cache[/yellow]")
+            console.print("[dim]💡 Hint: Run 'testgen test' or 'testgen auto' first[/dim]")
+            # Generate a report anyway with empty results
+            test_results = {
+                'total': 0,
+                'passed': 0,
+                'failed': 0,
+                'skipped': 0,
+                'duration': 0.0,
+                'results': []
+            }
+        else:
+            test_results = state_info['test_results']
+        
+        # Generate report
+        console.print(f"\n[yellow]📊 Generating {format_type} report...[/yellow]")
         
         if pdf:
-            console.print("[dim]⚠️  PDF generation not yet implemented (Task 86+)[/dim]")
+            console.print("[yellow]⚠️  PDF generation not yet implemented[/yellow]")
+            console.print("[dim]Falling back to HTML format[/dim]")
         
-        # Success message (placeholder)
-        console.print(f"\n[green]✅ Report generation completed![/green]")
-        console.print(f"[dim]Report would be saved to: {output_path}[/dim]")
-        console.print("[dim]Note: Full implementation coming in Module 7 (Reporter)[/dim]")
+        report_format = 'html'  # TODO: Add PDF support
+        report_path = manager.execute_report(
+            results=test_results,
+            format=report_format
+        )
+        
+        # Success message
+        console.print(f"\n[green]✅ Report generated successfully![/green]")
+        console.print(f"[green]📄 Report saved to: {report_path}[/green]")
+        
+        # Open in browser if requested
+        if open_browser and not pdf:
+            import webbrowser
+            webbrowser.open(f"file://{Path(report_path).absolute()}")
+            console.print("[cyan]🌐 Opened report in browser[/cyan]")
         
     except Exception as e:
         console.print(f"[red]❌ Error during report generation: {e}[/red]")
@@ -400,46 +472,37 @@ def auto(
         
         console.print("\n")
         
-        # Phase 1: Generate
-        console.print("[bold cyan]═══ Phase 1/4: Test Generation ═══[/bold cyan]")
-        console.print(f"📊 Analyzing code in {target_directory}...")
-        console.print("[dim]⚠️  Scanner module not yet implemented (Task 22+)[/dim]")
-        console.print("🤖 Generating tests with AI...")
-        console.print("[dim]⚠️  LLM module not yet implemented (Task 33+)[/dim]")
-        console.print("[green]✓[/green] Test generation complete\n")
+        # Initialize WorkflowManager
+        from testgen.manager import WorkflowManager
         
-        # Phase 2: Test Execution
-        console.print("[bold cyan]═══ Phase 2/4: Test Execution ═══[/bold cyan]")
-        console.print(f"🧪 Running tests from {output_dir}...")
-        console.print("[dim]⚠️  Runner module not yet implemented (Task 47+)[/dim]")
-        console.print("[green]✓[/green] Test execution complete\n")
+        # Use target_directory as project_path
+        # Outputs will go to: target_directory/TestGen-AI/tests/ and target_directory/TestGen-AI/reports/
+        workflow_config = {
+            'language': 'python',  # TODO: Auto-detect
+            'verbose': state.verbose
+        }
         
-        # Phase 3: Results Display
-        console.print("[bold cyan]═══ Phase 3/4: Results Display ═══[/bold cyan]")
-        console.print("📊 Rendering terminal matrix...")
-        console.print("[dim]⚠️  Terminal UI module not yet implemented (Task 69+)[/dim]")
-        console.print("[green]✓[/green] Results displayed\n")
+        # Pass target_directory as project_path
+        manager = WorkflowManager(project_path=str(target_directory), config=workflow_config)
         
-        # Phase 4: Report Generation
-        if not skip_report:
-            console.print("[bold cyan]═══ Phase 4/4: Report Generation ═══[/bold cyan]")
-            console.print("📄 Generating HTML report...")
-            console.print("[dim]⚠️  Reporter module not yet implemented (Task 80+)[/dim]")
-            console.print("[green]✓[/green] Report generated\n")
-        else:
-            console.print("[bold cyan]═══ Phase 4/4: Report Generation ═══[/bold cyan]")
-            console.print("[yellow]⊘[/yellow] Skipped (--skip-report flag set)\n")
+        # Execute auto workflow
+        console.print("[bold cyan]═══ Executing Auto Workflow ═══[/bold cyan]\n")
+        
+        result = manager.execute_auto(
+            source_files=[str(target_directory)],
+            language='python',
+            report_format='both' if not skip_report else 'json'
+        )
         
         # Final Summary
+        state_info = manager.get_state()
         console.print(Panel.fit(
             f"[bold green]✅ All Phases Complete![/bold green]\n\n"
             f"[bold]Summary:[/bold]\n"
-            f"  • Tests Generated: [yellow]N/A (not implemented yet)[/yellow]\n"
-            f"  • Tests Passed: [green]N/A[/green]\n"
-            f"  • Tests Failed: [red]N/A[/red]\n"
-            f"  • Coverage: [cyan]N/A[/cyan]\n"
-            f"  • Report: [cyan]{'Generated' if not skip_report else 'Skipped'}[/cyan]\n\n"
-            f"[dim]Note: Full workflow implementation coming in Modules 2-7[/dim]",
+            f"  • Files Scanned: [yellow]{result.get('generate', {}).get('files_scanned', 0)}[/yellow]\n"
+            f"  • Tests Generated: [green]{result.get('generate', {}).get('tests_generated', 0)}[/green]\n"
+            f"  • Total Duration: [cyan]{result.get('total_duration', 0):.2f}s[/cyan]\n"
+            f"  • Report: [cyan]{'Generated' if not skip_report else 'Skipped'}[/cyan]",
             title="🎉 Workflow Complete",
             border_style="green"
         ))

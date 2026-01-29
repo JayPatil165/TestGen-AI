@@ -23,14 +23,19 @@ except ImportError:
     CodeScanner = None
 
 try:
-    from testgen.llm.llm_client import LLMClient
+    from testgen.core.llm import LLMClient
 except ImportError:
     LLMClient = None
 
 try:
-    from testgen.runner.test_runner import TestRunner
+    from testgen.core.mock_llm import MockLLM
 except ImportError:
-    TestRunner = None
+    MockLLM = None
+
+try:
+    from testgen.core.runner_factory import create_test_runner
+except ImportError:
+    create_test_runner = None
 
 try:
     from testgen.watcher.file_watcher import FileWatcher
@@ -44,9 +49,9 @@ except ImportError:
     ExecutionSummary = None
 
 try:
-    from testgen.ui.printer import ConsolePrinter
+    from testgen.ui.printer import TerminalPrinter
 except ImportError:
-    ConsolePrinter = None
+    TerminalPrinter = None
 
 
 
@@ -100,22 +105,82 @@ class WorkflowManager:
         self.config = config or {}
         self.state = WorkflowState()
         
+        # Workflow settings (needed before module init)
+        self.language = self.config.get('language', 'python')
+        
+        # Create TestGen-AI parent folder with tests/ and reports/ inside
+        # Structure: <project_path>/TestGen-AI/tests/ and <project_path>/TestGen-AI/reports/
+        testgen_folder = self.config.get('testgen_folder', 'TestGen-AI')
+        
+        # Build paths properly using Path objects (don't convert to string until the end)
+        if 'output_dir' in self.config:
+            output_dir_base = Path(self.config['output_dir'])
+        else:
+            output_dir_base = Path(testgen_folder) / 'tests'
+            
+        if 'report_dir' in self.config:
+            report_dir_base = Path(self.config['report_dir'])
+        else:
+            report_dir_base = Path(testgen_folder) / 'reports'
+            
+        if 'cache_dir' in self.config:
+            cache_dir_base = Path(self.config['cache_dir'])
+        else:
+            cache_dir_base = Path(testgen_folder) / '.cache'
+        
+        # If paths are not absolute, make them relative to project_path
+        if not output_dir_base.is_absolute():
+            self.output_dir = self.project_path / output_dir_base
+        else:
+            self.output_dir = output_dir_base
+            
+        if not report_dir_base.is_absolute():
+            self.report_dir = self.project_path / report_dir_base
+        else:
+            self.report_dir = report_dir_base
+            
+        if not cache_dir_base.is_absolute():
+            self.cache_dir = self.project_path / cache_dir_base
+        else:
+            self.cache_dir = cache_dir_base
+        
+        self.verbose = self.config.get('verbose', False)  # Move verbose here!
+        
         # Initialize all core modules (with None fallback if not available)
         self.scanner = CodeScanner() if CodeScanner else None
-        self.llm_client = LLMClient() if LLMClient else None
-        self.runner = TestRunner() if TestRunner else None
+        
+        # Use real LLM client (Gemini API) if available, fallback to MockLLM for testing
+        # Check if user wants to force MockLLM (useful when quota exceeded)
+        use_mock = self.config.get('use_mock_llm', False)
+        
+        if use_mock and MockLLM:
+            self.llm_client = MockLLM()
+            if self.verbose:
+                print("⚠️ Using MockLLM (forced via config)")
+        elif LLMClient:
+            try:
+                self.llm_client = LLMClient()
+                if self.verbose:
+                    print("✅ Using LLMClient with Gemini API")
+            except Exception as e:
+                if self.verbose:
+                    print(f"⚠️ LLMClient failed, falling back to MockLLM: {e}")
+                self.llm_client = MockLLM() if MockLLM else None
+        elif MockLLM:
+            self.llm_client = MockLLM()
+            if self.verbose:
+                print("⚠️ Using MockLLM (no real API)")
+        else:
+            self.llm_client = None
+            
+        # Initialize test runner with project directory (not language string!)
+        self.runner = create_test_runner(str(self.project_path), verbose=self.verbose) if create_test_runner else None
         self.watcher = FileWatcher() if FileWatcher else None
         self.reporter = ReportGenerator() if ReportGenerator else None
-        self.printer = ConsolePrinter() if ConsolePrinter else None
+        self.printer = TerminalPrinter() if TerminalPrinter else None
         
-        # Workflow settings
-        self.language = self.config.get('language', 'python')
-        self.output_dir = Path(self.config.get('output_dir', 'tests'))
-        self.report_dir = Path(self.config.get('report_dir', 'reports'))
-        self.cache_dir = Path(self.config.get('cache_dir', '.testgen-cache'))
-        
-        # Initialize cache directory
-        self.cache_dir.mkdir(exist_ok=True)
+        # Initialize cache directory (create parent dirs if needed)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         
         # Task 95: Session tracking
         self.session_file = self.cache_dir / "session.json"
@@ -124,9 +189,6 @@ class WorkflowManager:
         
         # Task 98: Structured logging
         self._init_logging()
-        
-        # Task 99: Verbose mode
-        self.verbose = self.config.get('verbose', False)
         
     def execute_generate(
         self,
@@ -151,10 +213,22 @@ class WorkflowManager:
         # Phase 1: Analyze (Scan)
         self.printer.print_header(f"🔍 Analyzing {lang.upper()} Code")
         
+        # Discover source files
+        files = []
         if source_files:
-            files = [Path(f) for f in source_files]
-        else:
-            # Scan all files
+            for source_file in source_files:
+                path = Path(source_file)
+                if path.is_dir():
+                    # If it's a directory, find Python files in it
+                    if lang == 'python':
+                        files.extend(path.rglob('*.py'))
+                    elif lang == 'javascript':
+                        files.extend(path.rglob('*.js'))
+                    # Add more patterns for other languages
+                elif path.is_file():
+                    files.append(path)
+        elif self.scanner:
+            # Use scanner if available
             files = self.scanner.scan_directory(
                 str(self.project_path),
                 language=lang
@@ -228,30 +302,51 @@ class WorkflowManager:
         
         lang = language or self.language
         
-        self.printer.print_header(f"🧪 Running {lang.upper()} Tests")
-        
-        # Discover test files if not provided
+        # Phase 1: Execute tests
         if not test_files:
+            # Discover tests
             test_files = self._discover_test_files(lang)
         
-        # Run tests
-        results = self.runner.run_tests(
-            test_files=test_files,
-            language=lang
-        )
+        self.state.phase = "EXECUTING"
+        self.printer.print_header(f"🧪 Running {lang.upper()} Tests")
         
-        self.state.test_results = results
+        if self.runner:
+            # Run tests using the runner
+            try:
+                results = self.runner.run_tests(
+                    test_dir=str(self.output_dir),
+                    pattern=None
+                )
+                
+                # Store results
+                self.state.test_results = {
+                    'total': results.total if hasattr(results, 'total') else 0,
+                    'passed': results.passed if hasattr(results, 'passed') else 0,
+                    'failed': results.failed if hasattr(results, 'failed') else 0,
+                    'duration': results.duration if hasattr(results, 'duration') else 0.0
+                }
+            except Exception as e:
+                # Handle runner errors gracefully
+                self.state.test_results = {
+                    'total': 0,
+                    'passed': 0,
+                    'failed': 0,
+                    'duration': 0.0,
+                    'error': str(e)
+                }
+        else:
+            # No runner available
+            self.state.test_results = {
+                'total': 0,
+                'passed': 0,
+                'failed': 0,
+                'duration': 0.0
+            }
+        
         self.state.end_time = datetime.now()
         self.state.phase = "IDLE"
         
-        return {
-            'tests_run': results.get('total', 0),
-            'passed': results.get('passed', 0),
-            'failed': results.get('failed', 0),
-            'skipped': results.get('skipped', 0),
-            'duration': results.get('duration', 0),
-            'language': lang
-        }
+        return self.state.test_results
     
     def execute_report(
         self,

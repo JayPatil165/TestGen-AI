@@ -50,6 +50,34 @@ class TerminalPrinter:
         self.console = Console(color_system="auto" if use_color else None)
         self.use_color = use_color
     
+    def print_status(self, message: str):
+        """Print a status message."""
+        if RICH_AVAILABLE:
+            self.console.print(f"[cyan]{message}[/cyan]")
+        else:
+            print(message)
+    
+    def print_success(self, message: str):
+        """Print a success message."""
+        if RICH_AVAILABLE:
+            self.console.print(f"[green]✅ {message}[/green]")
+        else:
+            print(f"✅ {message}")
+    
+    def print_error(self, message: str):
+        """Print an error message."""
+        if RICH_AVAILABLE:
+            self.console.print(f"[red]❌ {message}[/red]")
+        else:
+            print(f"❌ {message}")
+    
+    def print_info(self, message: str):
+        """Print an info message."""
+        if RICH_AVAILABLE:
+            self.console.print(f"[blue]ℹ️  {message}[/blue]")
+        else:
+            print(f"ℹ️  {message}")
+    
     def print_header(self, title: str, subtitle: Optional[str] = None) -> None:
         """
         Print a formatted header.

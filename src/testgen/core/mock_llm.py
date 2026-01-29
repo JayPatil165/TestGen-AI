@@ -105,6 +105,40 @@ class MockLLM:
             completion_tokens=int(completion_tokens)
         )
     
+    def generate_test(
+        self,
+        source_code: str,
+        language: str = "python",
+        file_path: Optional[str] = None,
+        **kwargs
+    ) -> str:
+        """
+        Generate test code for given source code (WorkflowManager compatibility).
+        
+        Args:
+            source_code: Source code to generate tests for
+            language: Programming language
+            file_path: Path to source file
+            **kwargs: Additional arguments
+            
+        Returns:
+            Generated test code as string
+        """
+        # Create prompt for test generation
+        prompt = f"""Generate unit tests for the following {language} code:
+
+```{language}
+{source_code}
+```
+
+File: {file_path or 'unknown'}
+
+Generate comprehensive unit tests with good coverage."""
+        
+        # Call generate and extract content
+        response = self.generate(prompt, **kwargs)
+        return response.content
+    
     def _generate_response(self, prompt: str) -> str:
         """
         Generate appropriate response based on prompt.

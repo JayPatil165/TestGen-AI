@@ -163,6 +163,64 @@ class LLMClient:
         else:
             return self._generate_litellm(prompt, system_prompt, temperature, max_tokens, stop)
     
+    def generate_test(
+        self,
+        source_code: str,
+        language: str = "python",
+        file_path: Optional[str] = None,
+        **kwargs
+    ) -> str:
+        """
+        Generate test code for given source code (WorkflowManager compatibility).
+        
+        Args:
+            source_code: Source code to generate tests for
+            language: Programming language
+            file_path: Path to source file
+            **kwargs: Additional arguments
+            
+        Returns:
+            Generated test code as string
+        """
+        # Create system prompt
+        system_prompt = f"""You are an expert test engineer specializing in {language} testing.
+Your task is to generate comprehensive, high-quality unit tests."""
+
+        # Create user prompt
+        user_prompt = f"""Generate unit tests for the following {language} code:
+
+```{language}
+{source_code}
+```
+
+File: {file_path or 'unknown'}
+
+Requirements:
+- Use pytest framework
+- Include edge cases and error handling tests
+- Add docstrings to explain what each test does
+- Ensure tests are runnable and follow best practices
+- Generate ONLY the test code, no explanations
+
+Generate comprehensive unit tests:"""
+        
+        # Call generate and extract content
+        response = self.generate(user_prompt, system_prompt=system_prompt, **kwargs)
+        test_code = response.content
+        
+        # Strip markdown code fences if present
+        if test_code.startswith("```"):
+            lines = test_code.split('\n')
+            # Remove first line if it's ```python or ```
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            # Remove last line if it's ```
+            if lines and lines[-1].strip() ==  "```":
+                lines = lines[:-1]
+            test_code = '\n'.join(lines)
+        
+        return test_code
+    
     def _generate_gemini(
         self,
         prompt: str,

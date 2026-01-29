@@ -346,14 +346,18 @@ class PythonTestRunner(BaseTestRunner):
         
         results.total = results.passed + results.failed + results.skipped + results.errors
         
-        # If we couldn't parse, check return code
+        # If we couldn't parse any results, try to count tests from files
         if results.total == 0:
-            if result.returncode == 0:
-                results.passed = 1
-                results.total = 1
-            else:
-                results.errors = 1
-                results.total = 1
+            # Count test functions in the directory
+            try:
+                test_count = self.count_tests(str(Path(test_dir)))
+                if test_count > 0:
+                    results.total = test_count
+                    # If tests exist but didn't run, mark as errors
+                    if result.returncode != 0:
+                        results.errors = test_count
+            except Exception:
+                pass
         
         return results
     
