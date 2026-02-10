@@ -1359,7 +1359,7 @@
 
 - [ ] **Task 109**: Test: Report command
   - Run `testgen report`
-  - Verify HTML file is created
+  - Verify HTML file is created 
   - Verify PDF file is created (if implemented)
 
 - [ ] **Task 110**: Test: Watch mode

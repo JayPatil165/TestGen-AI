@@ -54,15 +54,27 @@
             ;
         }
 
-        h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
+        <h1> {
+                {
+                project_name
+            }
         }
 
-        .timestamp {
+            {
+            % if language %
+        }
+
+        <span class="badge language-badge"> {
+                {
+                language|upper
+            }
+        }
+
+        </span> {
+            % endif %
+        }
+
+        </h1><div class="subtitle" style="font-size: 1.1em; color: #e0e7ff; margin-bottom: 15px; font-weight: 500;">by TestGen-AI</div>.timestamp {
             font-size: 0.9em;
             opacity: 0.9;
             margin-top: 10px;
@@ -440,6 +452,11 @@
                 <div class="summary-card skipped">
                     <h3>Skipped</h3>
                     <div class="value">{{ skipped }}</div>
+                </div>
+
+                <div class="summary-card failed" style="background: linear-gradient(135deg, #8E2DE2, #4A00E0);">
+                    <h3>Errors</h3>
+                    <div class="value">{{ errors }}</div>
                 </div>
 
                 <div class="summary-card duration">

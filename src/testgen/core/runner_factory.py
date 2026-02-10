@@ -71,7 +71,7 @@ class TestRunnerFactory:
         
         # Create appropriate runner
         if language == Language.PYTHON:
-            return PythonTestRunner(verbose=verbose)
+            return PythonTestRunner(verbose=verbose, project_dir=project_dir)
         
         elif language in [Language.JAVASCRIPT, Language.TYPESCRIPT]:
             return JavaScriptTestRunner(verbose=verbose)

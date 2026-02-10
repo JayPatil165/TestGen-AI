@@ -20,16 +20,120 @@ class PythonTestRunner(BaseTestRunner):
     Inherits from BaseTestRunner and implements Python/pytest-specific logic.
     """
     
-    def __init__(self, verbose: bool = False, capture_output: bool = True):
+    def __init__(self, verbose: bool = False, capture_output: bool = True, project_dir: Optional[str] = None):
         """
         Initialize Python test runner.
         
         Args:
             verbose: Print verbose output
             capture_output: Capture test output
+            project_dir: Root directory of the project
         """
         super().__init__(verbose)
         self.capture_output = capture_output
+        self.project_dir = project_dir
+    
+    # ... (get_language, get_framework, etc. remain the same)
+
+    def run_tests(
+        self,
+        test_dir: str,
+        pattern: Optional[str] = None,
+        json_report: bool = False,
+        json_report_file: Optional[str] = None,
+        **kwargs
+    ) -> TestResults:
+        """
+        Run Python tests with pytest.
+        
+        Args:
+            test_dir: Directory containing tests
+            pattern: File pattern
+            json_report: Enable JSON reporting
+            json_report_file: JSON report file path
+            **kwargs: Additional pytest arguments
+            
+        Returns:
+            TestResults
+        """
+        test_path = Path(test_dir)
+        
+        if not test_path.exists():
+            return TestResults(
+                total=0,
+                errors=1,
+                language=self.get_language(),
+                framework=self.get_framework()
+            )
+        
+        # Build command
+        cmd = self.build_command(
+            test_dir,
+            pattern,
+            json_report=json_report,
+            json_report_file=json_report_file,
+            **kwargs
+        )
+        
+        if self.verbose:
+            print(f"Running: {' '.join(cmd)}")
+        
+        # Execute tests
+        try:
+            # Set up environment with PYTHONPATH to include project root
+            import os
+            env = os.environ.copy()
+            if self.project_dir:
+                project_path = str(Path(self.project_dir).resolve())
+                if 'PYTHONPATH' in env:
+                    env['PYTHONPATH'] = f"{project_path}{os.pathsep}{env['PYTHONPATH']}"
+                else:
+                    env['PYTHONPATH'] = project_path
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=self.capture_output,
+                text=True,
+                cwd=Path.cwd(),
+                timeout=300,
+                env=env
+            )
+            
+            # Try to parse JSON report if available
+            if json_report and json_report_file:
+                json_path = Path(json_report_file)
+                if json_path.exists():
+                    try:
+                        with open(json_path, 'r', encoding='utf-8') as f:
+                            json_data = json.load(f)
+                        return self._parse_json_report(json_data)
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"Failed to parse JSON: {e}")
+                        # Fall back to text parsing
+            
+            # Parse text output
+            # Parse text output
+            return self._parse_text_output(result)
+        
+        except subprocess.TimeoutExpired:
+            if self.verbose:
+                print("Test execution timed out")
+            return TestResults(
+                language=self.get_language(),
+                framework=self.get_framework(),
+                total=0,
+                errors=1
+            )
+        except Exception as e:
+            if self.verbose:
+                print(f"Error running tests: {e}")
+            return TestResults(
+                language=self.get_language(),
+                framework=self.get_framework(),
+                total=0,
+                errors=1
+            )
     
     def get_language(self) -> str:
         """Get language name."""
@@ -172,11 +276,8 @@ class PythonTestRunner(BaseTestRunner):
         # Add short traceback
         cmd.append("--tb=short")
         
-        # Add verbose flag
-        if self.verbose:
-            cmd.append("-v")
-        else:
-            cmd.append("-q")
+        # Always use verbose flag to enable output parsing
+        cmd.append("-v")
         
         # Add custom arguments
         for key, value in kwargs.items():
@@ -321,43 +422,46 @@ class PythonTestRunner(BaseTestRunner):
             framework=self.get_framework()
         )
         
-        # Parse output for summary
-        lines = output.split('\n')
+        # Parse summary line (e.g., "5 passed, 2 failed in 1.23s")
+        import re
         
-        for line in lines:
-            if 'passed' in line or 'failed' in line:
-                parts = line.split()
-                for i, part in enumerate(parts):
-                    if part == 'passed' and i > 0:
-                        try:
-                            results.passed = int(parts[i-1])
-                        except:
-                            pass
-                    elif part == 'failed' and i > 0:
-                        try:
-                            results.failed = int(parts[i-1])
-                        except:
-                            pass
-                    elif part == 'skipped' and i > 0:
-                        try:
-                            results.skipped = int(parts[i-1])
-                        except:
-                            pass
+        # Extract individual test results from verbose output
+        # Pattern: test_file.py::test_name PASSED/FAILED/SKIPPED [XX%]
+        # We need to match lines like:
+        # tests/test_calculator.py::test_add PASSED [100%]
+        test_pattern = r'([\w/\\.-]+\.py)::(\S+)\s+(PASSED|FAILED|SKIPPED|ERROR)'
+        
+        for match in re.finditer(test_pattern, output):
+            file_path, test_name, status = match.groups()
+            
+            # Create test result
+            test_result = TestResult(
+                name=f"{file_path}::{test_name}",
+                status=status.lower(),
+                duration=0.0, # Duration is not easily available per test in standard verbose output without plugin
+                message=""
+            )
+            results.tests.append(test_result)
+        
+        # Parse summary counts
+        passed_match = re.search(r'(\d+) passed', output)
+        failed_match = re.search(r'(\d+) failed', output)
+        skipped_match = re.search(r'(\d+) skipped', output)
+        error_match = re.search(r'(\d+) error', output)
+        duration_match = re.search(r'in ([\d.]+)s', output)
+        
+        if passed_match:
+            results.passed = int(passed_match.group(1))
+        if failed_match:
+            results.failed = int(failed_match.group(1))
+        if skipped_match:
+            results.skipped = int(skipped_match.group(1))
+        if error_match:
+            results.errors = int(error_match.group(1))
+        if duration_match:
+            results.duration = float(duration_match.group(1))
         
         results.total = results.passed + results.failed + results.skipped + results.errors
-        
-        # If we couldn't parse any results, try to count tests from files
-        if results.total == 0:
-            # Count test functions in the directory
-            try:
-                test_count = self.count_tests(str(Path(test_dir)))
-                if test_count > 0:
-                    results.total = test_count
-                    # If tests exist but didn't run, mark as errors
-                    if result.returncode != 0:
-                        results.errors = test_count
-            except Exception:
-                pass
         
         return results
     

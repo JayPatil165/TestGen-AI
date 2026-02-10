@@ -53,6 +53,11 @@ try:
 except ImportError:
     TerminalPrinter = None
 
+try:
+    from testgen.ui.printer import TerminalPrinter
+except ImportError:
+    TerminalPrinter = None
+
 
 
 class WorkflowState:
@@ -91,28 +96,34 @@ class WorkflowManager:
     
     def __init__(
         self,
-        project_path: str = ".",
-        config: Optional[Dict[str, Any]] = None
+        project_path: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+        use_timestamp_folders: bool = True
     ):
         """
         Initialize the workflow manager.
         
         Args:
-            project_path: Root path of the project
+            project_path: Path to the project root directory
             config: Optional configuration dictionary
+            use_timestamp_folders: Whether to create timestamped subdirectories for output
         """
-        self.project_path = Path(project_path)
+        self.project_path = Path(project_path).resolve() if project_path else Path.cwd()
         self.config = config or {}
+        
+        # Initialize printer
+        self.printer = TerminalPrinter() if TerminalPrinter else None
+        
+        # Initialize state
         self.state = WorkflowState()
         
-        # Workflow settings (needed before module init)
+        # Workflow settings
         self.language = self.config.get('language', 'python')
         
-        # Create TestGen-AI parent folder with tests/ and reports/ inside
-        # Structure: <project_path>/TestGen-AI/tests/ and <project_path>/TestGen-AI/reports/
+        # Create TestGen-AI parent folder
         testgen_folder = self.config.get('testgen_folder', 'TestGen-AI')
         
-        # Build paths properly using Path objects (don't convert to string until the end)
+        # Build base paths
         if 'output_dir' in self.config:
             output_dir_base = Path(self.config['output_dir'])
         else:
@@ -127,22 +138,28 @@ class WorkflowManager:
             cache_dir_base = Path(self.config['cache_dir'])
         else:
             cache_dir_base = Path(testgen_folder) / '.cache'
+            
+        # Helper to resolve paths relative to project_path
+        def resolve(path_obj):
+            if path_obj.is_absolute():
+                return path_obj
+            return self.project_path / path_obj
+
+        self.output_dir = resolve(output_dir_base)
+        self.report_dir = resolve(report_dir_base)
+        self.cache_dir = resolve(cache_dir_base)
+            
+        # Create timestamped folders for this run to prevent overwriting
+        # Pattern: <base>/YYYY-MM-DD_HH-MM-SS/
+        if use_timestamp_folders:
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            self.output_dir = self.output_dir / timestamp
+            self.report_dir = self.report_dir / timestamp
         
-        # If paths are not absolute, make them relative to project_path
-        if not output_dir_base.is_absolute():
-            self.output_dir = self.project_path / output_dir_base
-        else:
-            self.output_dir = output_dir_base
-            
-        if not report_dir_base.is_absolute():
-            self.report_dir = self.project_path / report_dir_base
-        else:
-            self.report_dir = report_dir_base
-            
-        if not cache_dir_base.is_absolute():
-            self.cache_dir = self.project_path / cache_dir_base
-        else:
-            self.cache_dir = cache_dir_base
+        # Ensure directories exist
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.report_dir.mkdir(parents=True, exist_ok=True)
+
         
         self.verbose = self.config.get('verbose', False)  # Move verbose here!
         
@@ -242,10 +259,15 @@ class WorkflowManager:
         self.printer.print_header("🤖 Generating Tests with LLM")
         
         generated_tests = []
+        generated_tests = []
         for file_path in files:
+            # Skip existing tests to avoid recursion (test_test_*.py)
+            if file_path.name.startswith('test_') or 'tests' in str(file_path):
+                continue
+
             try:
                 # Read source code
-                source_code = file_path.read_text()
+                source_code = file_path.read_text(encoding='utf-8')
                 
                 # Generate test
                 test_code = self.llm_client.generate_test(
@@ -257,7 +279,7 @@ class WorkflowManager:
                 # Save generated test
                 test_file = self._get_test_output_path(file_path, lang)
                 test_file.parent.mkdir(parents=True, exist_ok=True)
-                test_file.write_text(test_code)
+                test_file.write_text(test_code, encoding='utf-8')
                 
                 generated_tests.append(str(test_file))
                 self.printer.print_success(f"Generated: {test_file.name}")
@@ -318,12 +340,38 @@ class WorkflowManager:
                     pattern=None
                 )
                 
+                # Helper to convert TestResult to dict
+                def result_to_dict(test_result):
+                    # Normalize status for reporter (passed -> PASS)
+                    status_map = {
+                        'passed': 'PASS',
+                        'failed': 'FAIL',
+                        'skipped': 'SKIP',
+                        'error': 'ERROR'
+                    }
+                    status = status_map.get(test_result.status.lower(), test_result.status.upper())
+                    
+                    return {
+                        'test_name': test_result.name,  # Mapped to test_name for reporter
+                        'status': status,
+                        'duration': test_result.duration,
+                        'message': test_result.message,
+                        'traceback': test_result.traceback,
+                        'file_path': str(test_result.file_path) if test_result.file_path else None,
+                        'line_number': test_result.line_number,
+                        'language': lang,
+                        'details': test_result.message or '' # Map message to details
+                    }
+
                 # Store results
                 self.state.test_results = {
                     'total': results.total if hasattr(results, 'total') else 0,
                     'passed': results.passed if hasattr(results, 'passed') else 0,
                     'failed': results.failed if hasattr(results, 'failed') else 0,
-                    'duration': results.duration if hasattr(results, 'duration') else 0.0
+                    'skipped': results.skipped if hasattr(results, 'skipped') else 0,
+                    'errors': results.errors if hasattr(results, 'errors') else 0,
+                    'duration': results.duration if hasattr(results, 'duration') else 0.0,
+                    'results': [result_to_dict(t) for t in results.tests] if hasattr(results, 'tests') and results.tests else []
                 }
             except Exception as e:
                 # Handle runner errors gracefully
@@ -374,8 +422,9 @@ class WorkflowManager:
             raise ValueError("No test results available for reporting")
         
         # Create execution summary
+        # Create execution summary
         summary = ExecutionSummary(
-            project_name=self.project_path.name,
+            project_name=f"Test Report for {self.project_path.name}",
             total=report_data.get('total', 0),
             passed=report_data.get('passed', 0),
             failed=report_data.get('failed', 0),
@@ -455,7 +504,15 @@ class WorkflowManager:
     
     def get_state(self) -> Dict[str, Any]:
         """Get current workflow state."""
-        return self.state.to_dict()
+        state_dict = self.state.to_dict()
+        
+        # Try to load from cache if empty
+        if not state_dict.get('test_results'):
+            cached = self.load_test_cache(self.language)
+            if cached:
+                state_dict['test_results'] = cached
+        
+        return state_dict
     
     def reset_state(self) -> None:
         """Reset workflow state."""

@@ -272,7 +272,10 @@ def test(
             'verbose': state.verbose or verbose_tests
         }
         
-        manager = WorkflowManager(config=workflow_config)
+        manager = WorkflowManager(
+            config=workflow_config,
+            use_timestamp_folders=False
+        )
         
         # Execute test workflow
         console.print("\n[yellow]🧪 Running tests...[/yellow]")
@@ -282,12 +285,17 @@ def test(
             language='python'
         )
         
+        # Cache results for report generation
+        manager.cache_test_results(result, 'python')
+        
         # Display results
         console.print("\n[bold cyan]═══ Test Results ═══[/bold cyan]\n")
         console.print(f"  [bold]Total:[/bold] {result.get('total', 0)}")
         console.print(f"  [green]Passed:[/green] {result.get('passed', 0)}")
         console.print(f"  [red]Failed:[/red] {result.get('failed', 0)}")
-        console.print(f"  [yellow]Duration:[/yellow] {result.get('duration', 0):.2f}s")
+        console.print(f"  [yellow]Skipped:[/yellow] {result.get('skipped', 0)}")
+        console.print(f"  [magenta]Errors:[/magenta] {result.get('errors', 0)}")
+        console.print(f"  [blue]Duration:[/blue] {result.get('duration', 0):.2f}s")
         
         # Success message
         console.print("\n[green]✅ Test execution completed![/green]")
@@ -361,7 +369,10 @@ def report(
             'verbose': state.verbose
         }
         
-        manager = WorkflowManager(config=workflow_config)
+        manager = WorkflowManager(
+            config=workflow_config,
+            use_timestamp_folders=False
+        )
         
         # Check if we have cached test results
         console.print("\n[yellow]📂 Loading test results...[/yellow]")

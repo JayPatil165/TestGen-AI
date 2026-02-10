@@ -648,10 +648,14 @@ class ReportGenerator:
     </div>
 
     <script>
-        // Chart.js implementation with proper error handling
+        // Data from Python
         const chartData = {chart_data_json};
-        
-        // Results Distribution Chart (Doughnut)
+
+        // --- CHART CONFIGURATION ---
+        Chart.defaults.font.family = "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif";
+        Chart.defaults.color = '#666';
+
+        // 1. Result Distribution Chart (Doughnut)
         const resultsCtx = document.getElementById('resultsChart');
         if (resultsCtx && chartData.total > 0) {{
             new Chart(resultsCtx, {{
@@ -660,87 +664,96 @@ class ReportGenerator:
                     labels: ['Passed', 'Failed', 'Skipped'],
                     datasets: [{{
                         data: [chartData.passed, chartData.failed, chartData.skipped],
-                        backgroundColor: [
-                            'rgba(102, 187, 106, 0.8)',  // Green
-                            'rgba(239, 83, 80, 0.8)',    // Red
-                            'rgba(255, 167, 38, 0.8)'    // Orange
-                        ],
-                        borderColor: [
-                            'rgba(102, 187, 106, 1)',
-                            'rgba(239, 83, 80, 1)',
-                            'rgba(255, 167, 38, 1)'
-                        ],
-                        borderWidth: 2
+                        backgroundColor: ['#2eea95', '#ff5f57', '#ffbd2e'], // Mac-styleTraffic light colors
+                        borderWidth: 0,
+                        hoverOffset: 4
                     }}]
                 }},
                 options: {{
                     responsive: true,
-                    maintainAspectRatio: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
                     plugins: {{
-                        legend: {{
-                            position: 'bottom',
-                            labels: {{
-                                padding: 15,
-                                font: {{
-                                    size: 12
-                                }}
-                            }}
-                        }}
+                        legend: {{ position: 'bottom', labels: {{ padding: 20 }} }}
                     }}
                 }}
             }});
-        }} else if (resultsCtx) {{
-            resultsCtx.parentElement.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">No test data available for visualization</div>';
         }}
 
-        // Success Rate Chart (Bar)
+        // 2. Success Rate Chart (Bar - Horizontal)
         const successCtx = document.getElementById('successRateChart');
         if (successCtx && chartData.total > 0) {{
-            const successRate = chartData.total > 0 ? (chartData.passed / chartData.total) * 100 : 0;
+            const successRate = (chartData.passed / chartData.total) * 100;
             const failureRate = 100 - successRate;
             
             new Chart(successCtx, {{
                 type: 'bar',
+                indexAxis: 'y', // Horizontal bar
                 data: {{
-                    labels: ['Success Rate', 'Failure Rate'],
-                    datasets: [{{
-                        label: 'Percentage',
-                        data: [successRate, failureRate],
-                        backgroundColor: [
-                            'rgba(156, 204, 101, 0.8)',  // Success: Green
-                            'rgba(239, 83, 80, 0.8)'     // Failure: Red
-                        ],
-                        borderColor: [
-                            'rgba(156, 204, 101, 1)',
-                            'rgba(239, 83, 80, 1)'
-                        ],
-                        borderWidth: 2
-                    }}]
+                    labels: ['Success Rate'],
+                    datasets: [
+                        {{
+                            label: 'Success',
+                            data: [successRate],
+                            backgroundColor: '#2eea95',
+                            barThickness: 30
+                        }},
+                        {{
+                            label: 'Failure',
+                            data: [failureRate],
+                            backgroundColor: '#ff5f57',
+                            barThickness: 30
+                        }}
+                    ]
                 }},
                 options: {{
                     responsive: true,
-                    maintainAspectRatio: true,
+                    maintainAspectRatio: false,
                     scales: {{
-                        y: {{
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {{
-                                callback: function(value) {{
-                                    return value + '%';
-                                }}
-                            }}
-                        }}
+                        x: {{ stacked: true, max: 100, grid: {{ display: false }} }},
+                        y: {{ stacked: true, grid: {{ display: false }} }}
                     }},
-                    plugins: {{
-                        legend: {{
-                            display: false
-                        }}
-                    }}
+                    plugins: {{ legend: {{ display: false }} }}
                 }}
             }});
-        }} else if (successCtx) {{
-            successCtx.parentElement.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">No test data available for visualization</div>';
         }}
+
+        // --- TABLE SORTING ---
+        document.querySelectorAll('th').forEach(header => {{
+            header.style.cursor = 'pointer';
+            header.addEventListener('click', () => {{
+                const table = header.closest('table');
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const index = Array.from(header.parentElement.children).indexOf(header);
+                const isAscending = header.dataset.order === 'asc';
+                
+                // Reset other headers
+                document.querySelectorAll('th').forEach(th => th.dataset.order = '');
+                header.dataset.order = isAscending ? 'desc' : 'asc';
+
+                rows.sort((rowA, rowB) => {{
+                    const cellA = rowA.children[index].innerText.trim();
+                    const cellB = rowB.children[index].innerText.trim();
+
+                    // Compare numbers (Duration)
+                    if (index === 4) {{ // Duration column
+                        const numA = parseFloat(cellA.replace('s', ''));
+                        const numB = parseFloat(cellB.replace('s', ''));
+                        return isAscending ? numA - numB : numB - numA;
+                    }}
+                    
+                    // Compare text (Name, Status, Language)
+                    return isAscending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+                }});
+
+                tbody.append(...rows);
+                
+                // Visual feedback (Arrow)
+                header.textContent = header.textContent.replace(' ▲', '').replace(' ▼', '');
+                header.textContent += isAscending ? ' ▼' : ' ▲';
+            }});
+        }});
     </script>
 </body>
 </html>
@@ -900,6 +913,7 @@ class ReportGenerator:
     <div class="container">
         <div class="header">
             <h1>{results.project_name} {language_badge}</h1>
+            <div class="subtitle" style="font-size: 1.1em; color: #6b7280; margin-bottom: 12px; font-weight: 500;">by TestGen-AI</div>
             <div class="timestamp">Generated: {results.timestamp.strftime('%Y-%m-%d %H:%M:%S')}</div>
             <div style="margin-top: 10px;">
                 <span class="status-badge {badge_class}">{status_text}</span>
