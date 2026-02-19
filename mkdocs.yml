@@ -7,7 +7,7 @@ repo_name: JayPatil165/TestGen-AI
 docs_dir: docs_source
 site_dir: docs
 site_url: https://JayPatil165.github.io/TestGen-AI/
-use_directory_urls: false
+use_directory_urls: true
 
 extra_css:
   - stylesheets/extra.css
