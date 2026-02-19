@@ -179,6 +179,10 @@ class WorkflowManager:
                 self.llm_client = LLMClient()
                 if self.verbose:
                     print("✅ Using LLMClient with Gemini API")
+            except ValueError:
+                # Re-raise config errors (e.g. missing API key) so the CLI
+                # can display the helpful fix message to the user.
+                raise
             except Exception as e:
                 if self.verbose:
                     print(f"⚠️ LLMClient failed, falling back to MockLLM: {e}")

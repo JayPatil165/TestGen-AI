@@ -62,6 +62,23 @@ class LanguageConfig:
         test_file_suffix (str): Filename suffix for tests.
         tree_sitter_language (str): The name of the tree-sitter grammar to use.
     """
+    name: str
+    language: Language
+    file_extensions: List[str]
+    test_file_patterns: List[str]
+    test_frameworks: List[str]
+    default_framework: str
+    comment_style: str
+    import_keyword: str
+    test_directory: str
+    assertion_style: str
+    function_pattern: str
+    class_pattern: str
+    test_function_prefix: str
+    test_class_prefix: str
+    test_file_prefix: str
+    test_file_suffix: str
+    tree_sitter_language: str
 
 
 # Language configurations

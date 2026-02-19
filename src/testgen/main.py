@@ -291,9 +291,15 @@ def generate(
 
         
     except Exception as e:
-        console.print(f"[red]❌ Error during test generation: {e}[/red]")
+        # Format multi-line error messages (e.g. API key hints) cleanly
+        error_lines = str(e).strip().splitlines()
+        console.print(f"[red]❌ Error during test generation:[/red] {error_lines[0]}")
+        for line in error_lines[1:]:
+            console.print(f"   [dim]{line}[/dim]")
         if state.debug:
             console.print_exception()
+        else:
+            console.print("[dim]   Tip: run with --debug for a full stack trace[/dim]")
         raise typer.Exit(1)
 
 
@@ -426,9 +432,14 @@ def test(
         console.print(f"[dim]💡 Run 'testgen report {resolved_project_dir}' to generate a report[/dim]")
         
     except Exception as e:
-        console.print(f"[red]❌ Error during test execution: {e}[/red]")
+        error_lines = str(e).strip().splitlines()
+        console.print(f"[red]❌ Error during test execution:[/red] {error_lines[0]}")
+        for line in error_lines[1:]:
+            console.print(f"   [dim]{line}[/dim]")
         if state.debug:
             console.print_exception()
+        else:
+            console.print("[dim]   Tip: run with --debug for a full stack trace[/dim]")
         raise typer.Exit(1)
 
 
@@ -558,9 +569,14 @@ def report(
             console.print("[cyan]🌐 Opened report in browser[/cyan]")
         
     except Exception as e:
-        console.print(f"[red]❌ Error during report generation: {e}[/red]")
+        error_lines = str(e).strip().splitlines()
+        console.print(f"[red]❌ Error during report generation:[/red] {error_lines[0]}")
+        for line in error_lines[1:]:
+            console.print(f"   [dim]{line}[/dim]")
         if state.debug:
             console.print_exception()
+        else:
+            console.print("[dim]   Tip: run with --debug for a full stack trace[/dim]")
         raise typer.Exit(1)
 
 
@@ -665,9 +681,14 @@ def auto(
         console.print("[dim]💡 Tip: Use individual commands (generate, test, report) for more control[/dim]\n")
         
     except Exception as e:
-        console.print(f"\n[red]❌ Error during auto workflow: {e}[/red]")
+        error_lines = str(e).strip().splitlines()
+        console.print(f"\n[red]❌ Error during auto workflow:[/red] {error_lines[0]}")
+        for line in error_lines[1:]:
+            console.print(f"   [dim]{line}[/dim]")
         if state.debug:
             console.print_exception()
+        else:
+            console.print("[dim]   Tip: run with --debug for a full stack trace[/dim]")
         raise typer.Exit(1)
 
 

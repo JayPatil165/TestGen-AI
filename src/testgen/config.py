@@ -220,20 +220,24 @@ class Config(BaseSettings):
         """Validate that required API keys are set based on provider."""
         if self.llm_provider == LLMProvider.OPENAI and not self.openai_api_key:
             raise ValueError(
-                "OpenAI API key is required when using OpenAI provider. "
-                "Set OPENAI_API_KEY environment variable."
+                "OpenAI API key not found.\n"
+                "  Fix: testgen config set OPENAI_API_KEY sk-...\n"
+                "  Keys are saved globally and work from any directory."
             )
         
         if self.llm_provider == LLMProvider.ANTHROPIC and not self.anthropic_api_key:
             raise ValueError(
-                "Anthropic API key is required when using Anthropic provider. "
-                "Set ANTHROPIC_API_KEY environment variable."
+                "Anthropic API key not found.\n"
+                "  Fix: testgen config set ANTHROPIC_API_KEY sk-ant-...\n"
+                "  Keys are saved globally and work from any directory."
             )
         
         if self.llm_provider == LLMProvider.GEMINI and not self.gemini_api_key:
             raise ValueError(
-                "Gemini API key is required when using Gemini provider. "
-                "Set GEMINI_API_KEY environment variable."
+                "Gemini API key not found.\n"
+                "  Fix: testgen config set GEMINI_API_KEY AIza...\n"
+                "  Get a free key at: https://aistudio.google.com/app/apikey\n"
+                "  Keys are saved globally and work from any directory."
             )
     
     def get_api_key(self) -> Optional[str]:
