@@ -18,9 +18,9 @@ from datetime import datetime
 
 # Core module imports - with graceful fallback for testing
 try:
-    from testgen.scanner.code_scanner import CodeScanner
+    from testgen.core.scanner import CodeScanner
 except ImportError:
-    CodeScanner = None
+    pass  # Will be None if not found
 
 try:
     from testgen.core.llm import LLMClient
@@ -246,13 +246,37 @@ class WorkflowManager:
                     files.append(path)
         elif self.scanner:
             # Use scanner if available
-            files = self.scanner.scan_directory(
-                str(self.project_path),
-                language=lang
-            )
-        
+            scan_result = self.scanner.scan_directory(str(self.project_path))
+            
+            # Filter files by language
+            scanner_files = scan_result.files
+            files = []
+            
+            # Map language to extensions
+            extensions = {
+                'python': ['.py'],
+                'javascript': ['.js', '.jsx', '.mjs'],
+                'typescript': ['.ts', '.tsx'],
+                'java': ['.java'],
+                'c': ['.c', '.h'],
+                'cpp': ['.cpp', '.hpp', '.cc', '.cxx'],
+                'go': ['.go'],
+                'rust': ['.rs'],
+                'php': ['.php']
+            }
+            
+            target_exts = tuple(extensions.get(lang.lower(), [])) if lang else None
+            
+            for f in scanner_files:
+                if target_exts:
+                    if str(f.path).lower().endswith(target_exts):
+                        files.append(f.path)
+                else:
+                    # If no language specified, include all supported code files
+                    files.append(f.path)
+
         self.state.files_scanned = [str(f) for f in files]
-        self.printer.print_success(f"Found {len(files)} source files")
+        self.printer.print_success(f"Found {len(files)} {lang} source files")
         
         # Phase 2: Generate (LLM)
         self.state.phase = "GENERATING"
@@ -406,7 +430,7 @@ class WorkflowManager:
         
         Args:
             results: Test results (or None to use last execution)
-            format: Report format ('html', 'json', 'both')
+            format: Report format ('html', 'json', 'pdf', 'both')
             
         Returns:
             Path to generated report
@@ -434,22 +458,32 @@ class WorkflowManager:
             results=report_data.get('results', [])
         )
         
-        # Generate reports
+        # Generate reports with timestamped filenames
         self.report_dir.mkdir(parents=True, exist_ok=True)
         
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         reports = []
         
         if format in ['html', 'both']:
-            html_path = self.report_dir / "test_report.html"
+            html_filename = f"report_{timestamp}.html"
+            html_path = self.report_dir / html_filename
             self.reporter.generate_html_from_template(summary, str(html_path))
             reports.append(str(html_path))
             self.printer.print_success(f"HTML report: {html_path}")
         
         if format in ['json', 'both']:
-            json_path = self.report_dir / "test_report.json"
+            json_filename = f"report_{timestamp}.json"
+            json_path = self.report_dir / json_filename
             self.reporter.generate_json(summary, str(json_path))
             reports.append(str(json_path))
             self.printer.print_success(f"JSON report: {json_path}")
+
+        if format == 'pdf':
+            pdf_filename = f"report_{timestamp}.pdf"
+            pdf_path = self.report_dir / pdf_filename
+            self.reporter.generate_pdf(summary, str(pdf_path))
+            reports.append(str(pdf_path))
+            self.printer.print_success(f"PDF report: {pdf_path}")
         
         self.state.report_path = reports[0] if reports else None
         self.state.phase = "IDLE"

@@ -290,6 +290,45 @@ class PythonTestRunner(BaseTestRunner):
         
         return cmd
     
+    def _inject_conftest(self, test_dir: Path) -> None:
+        """Inject conftest.py to setup sys.path."""
+        conftest_path = test_dir / "conftest.py"
+        if conftest_path.exists():
+            return
+            
+        try:
+            # Calculate the tool root (TestGen-AI installation directory)
+            tool_root = Path(__file__).resolve().parent.parent.parent.parent  # src/testgen/core/ → project
+            tool_root_str = str(tool_root).replace('\\', '/')
+
+            # Calculate the analyzed project directory (self.project_dir or cwd)
+            project_root = Path(self.project_dir).resolve() if self.project_dir else Path.cwd().resolve()
+            project_root_str = str(project_root).replace('\\', '/')
+            
+            content = f"""import sys
+from pathlib import Path
+
+# Add the TestGen-AI tool root to sys.path (for full package imports like examples.complex_app.main)
+_tool_root = r"{tool_root_str}"
+if _tool_root not in sys.path:
+    sys.path.insert(0, _tool_root)
+
+# Add the analyzed project directory to sys.path (for short imports like 'from utils.string_utils import ...')
+# This file sits at: <project>/TestGen-AI/tests/<run>/conftest.py — project root is 3 levels up.
+_conftest_dir = Path(__file__).parent
+_project_root = _conftest_dir.parent.parent.parent  # <run>/ → tests/ → TestGen-AI/ → project/
+_project_root_str = str(_project_root)
+if _project_root_str not in sys.path:
+    sys.path.insert(0, _project_root_str)
+"""
+            conftest_path.write_text(content, encoding='utf-8')
+            if self.verbose:
+                print(f"Injected conftest.py at {conftest_path}")
+                
+        except Exception as e:
+            if self.verbose:
+                print(f"Failed to inject conftest.py: {e}")
+
     def run_tests(
         self,
         test_dir: str,
@@ -312,6 +351,10 @@ class PythonTestRunner(BaseTestRunner):
             TestResults
         """
         test_path = Path(test_dir)
+        
+        # Inject conftest.py
+        if test_path.exists():
+            self._inject_conftest(test_path)
         
         if not test_path.exists():
             return TestResults(

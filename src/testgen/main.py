@@ -196,8 +196,89 @@ def generate(
         
         # TODO: Watch mode integration
         if watch:
-            console.print("\n[yellow]👀 Watch mode...[/yellow]")
-            console.print("[dim]⚠️  Watch mode will auto-regenerate tests when files change[/dim]")
+            # ── Real watch mode using UniversalFileWatcher ─────────────────
+            try:
+                from testgen.core.watcher import UniversalFileWatcher, WATCHDOG_AVAILABLE, FileChangeType
+                from testgen.core.language_config import Language
+            except ImportError:
+                WATCHDOG_AVAILABLE = False
+
+            if not WATCHDOG_AVAILABLE:
+                console.print("[red]❌ Watch mode requires 'watchdog'. Install it with: pip install watchdog[/red]")
+                raise typer.Exit(1)
+
+            import threading
+
+            console.print(Panel.fit(
+                f"[bold cyan]Watch Mode Active[/bold cyan]\n\n"
+                f"👀 Watching: [green]{target_directory}[/green]\n"
+                f"⏱️  Debounce: [yellow]2.0s[/yellow]\n"
+                f"⌨️  Press [bold]Ctrl+C[/bold] to stop",
+                title="🔄 TestGen AI — Watch Mode",
+                border_style="yellow"
+            ))
+
+            # Lock to prevent concurrent generate calls
+            _gen_lock = threading.Lock()
+
+            def on_file_changed(event):
+                """Called whenever a watched source file changes."""
+                if event.is_test_file:
+                    return  # Ignore changes to generated test files
+
+                changed_path = str(event.path)
+                change_label = event.change_type.value.upper()
+
+                console.print(
+                    f"\n[yellow]🔄 [{change_label}] {event.path.name}[/yellow] "
+                    f"[dim]({changed_path})[/dim]"
+                )
+
+                # Skip deletions — nothing to regenerate
+                if event.change_type == FileChangeType.DELETED:
+                    console.print("[dim]   ↳ File deleted — skipping regeneration[/dim]")
+                    return
+
+                if not _gen_lock.acquire(blocking=False):
+                    console.print("[dim]   ↳ Already regenerating — change queued[/dim]")
+                    return
+
+                try:
+                    console.print("[cyan]   ↳ Regenerating tests...[/cyan]")
+                    gen_result = manager.execute_generate(
+                        source_files=[changed_path],
+                        language='python'
+                    )
+                    tests_made = gen_result.get('tests_generated', 0)
+                    console.print(f"[green]   ✅ Done — {tests_made} test file(s) updated[/green]")
+                except Exception as exc:
+                    console.print(f"[red]   ❌ Regeneration failed: {exc}[/red]")
+                    if state.debug:
+                        console.print_exception()
+                finally:
+                    _gen_lock.release()
+
+            watcher = UniversalFileWatcher(
+                watch_paths=[str(target_directory)],
+                languages=[Language.PYTHON],
+                debounce_seconds=2.0,
+                ignore_patterns=[
+                    '*.pyc', '__pycache__', 'TestGen-AI',
+                    '.git', 'node_modules', '*.pyo'
+                ]
+            )
+            watcher.on_change(on_file_changed)
+
+            try:
+                watcher.start()
+                console.print("[green]✅ Watching for file changes... (Ctrl+C to stop)[/green]\n")
+                while True:
+                    import time as _time
+                    _time.sleep(0.5)
+            except KeyboardInterrupt:
+                watcher.stop()
+                console.print("\n[yellow]👋 Watch mode stopped[/yellow]")
+
         
     except Exception as e:
         console.print(f"[red]❌ Error during test generation: {e}[/red]")
@@ -208,9 +289,19 @@ def generate(
 
 @app.command()
 def test(
-    test_directory: Optional[Path] = typer.Argument(
+    project_dir: Optional[Path] = typer.Argument(
         None,
-        help="Directory containing tests (default: ./tests)",
+        help="Project directory whose generated tests to run (default: current directory)",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    test_directory: Optional[Path] = typer.Option(
+        None,
+        "--tests",
+        "-t",
+        help="Explicit test directory (overrides auto-discovery inside project_dir)",
         exists=True,
         file_okay=False,
         dir_okay=True,
@@ -230,49 +321,72 @@ def test(
     ),
 ):
     """
-    Run existing tests and display results.
+    Run generated tests and display results.
     
-    Executes test suite and shows a beautiful terminal matrix with results.
+    Auto-discovers the most recent test run inside <project_dir>/TestGen-AI/tests/.
+    Results are cached so 'testgen report <project_dir>' can build a report.
     
     Examples:
-        testgen test
-        testgen test ./tests
-        testgen test --pattern "test_*.py" --verbose
+        testgen test ./my-project
+        testgen test ./my-project --tests ./custom-tests
+        testgen test ./my-project --pattern "test_*.py" --verbose
     """
     try:
-        # Set test directory
-        test_dir = test_directory or Path(config.test_output_dir)
+        resolved_project_dir = project_dir or Path.cwd()
+        
+        # Auto-discover test directory if not explicitly provided
+        if test_directory:
+            test_dir = test_directory
+        else:
+            # Look inside <project>/TestGen-AI/tests/ and pick the most recent run
+            tests_base = resolved_project_dir / "TestGen-AI" / "tests"
+            if tests_base.exists():
+                # Find the latest timestamped run folder
+                run_dirs = sorted(
+                    [d for d in tests_base.iterdir() if d.is_dir()],
+                    reverse=True
+                )
+                if run_dirs:
+                    test_dir = run_dirs[0]
+                else:
+                    test_dir = tests_base  # fallback: run on the base
+            else:
+                # Fallback to legacy default
+                test_dir = resolved_project_dir / "tests"
         
         # Validate test directory
         if not test_dir.exists():
             console.print(f"[red]❌ Error: Test directory '{test_dir}' does not exist[/red]")
-            console.print("[yellow]💡 Hint: Run 'testgen generate' first to create tests[/yellow]")
+            console.print("[yellow]💡 Hint: Run 'testgen generate <project_dir>' first to create tests[/yellow]")
             raise typer.Exit(1)
         
         # Display start message
         console.print(Panel.fit(
             f"[bold cyan]Test Execution Started[/bold cyan]\n\n"
-            f"📁 Test Directory: [green]{test_dir}[/green]\n"
-            f"🔍 Pattern: [yellow]{pattern}[/yellow]\n"
-            f"📊 Verbose: [yellow]{'Yes' if verbose_tests or state.verbose else 'No'}[/yellow]",
+            f"📁 Project:   [green]{resolved_project_dir}[/green]\n"
+            f"🧪 Tests dir: [green]{test_dir}[/green]\n"
+            f"🔍 Pattern:   [yellow]{pattern}[/yellow]\n"
+            f"📊 Verbose:   [yellow]{'Yes' if verbose_tests or state.verbose else 'No'}[/yellow]",
             title="🧪 TestGen AI",
             border_style="cyan"
         ))
         
         if state.verbose:
+            console.print(f"[dim]Project dir: {resolved_project_dir.absolute()}[/dim]")
             console.print(f"[dim]Test directory: {test_dir.absolute()}[/dim]")
             console.print(f"[dim]Test pattern: {pattern}[/dim]")
         
-        # Initialize WorkflowManager
+        # Initialize WorkflowManager anchored to the project directory
         from testgen.manager import WorkflowManager
         
         workflow_config = {
-            'language': 'python',  # TODO: Auto-detect
+            'language': 'python',
             'output_dir': str(test_dir),
             'verbose': state.verbose or verbose_tests
         }
         
         manager = WorkflowManager(
+            project_path=str(resolved_project_dir),
             config=workflow_config,
             use_timestamp_folders=False
         )
@@ -281,25 +395,25 @@ def test(
         console.print("\n[yellow]🧪 Running tests...[/yellow]")
         
         result = manager.execute_test(
-            test_files=None,  # Auto-discover
+            test_files=None,  # Auto-discover inside test_dir
             language='python'
         )
         
-        # Cache results for report generation
+        # Cache results for report generation (stored in <project>/TestGen-AI/.cache/)
         manager.cache_test_results(result, 'python')
         
         # Display results
         console.print("\n[bold cyan]═══ Test Results ═══[/bold cyan]\n")
-        console.print(f"  [bold]Total:[/bold] {result.get('total', 0)}")
-        console.print(f"  [green]Passed:[/green] {result.get('passed', 0)}")
-        console.print(f"  [red]Failed:[/red] {result.get('failed', 0)}")
+        console.print(f"  [bold]Total:[/bold]   {result.get('total', 0)}")
+        console.print(f"  [green]Passed:[/green]  {result.get('passed', 0)}")
+        console.print(f"  [red]Failed:[/red]  {result.get('failed', 0)}")
         console.print(f"  [yellow]Skipped:[/yellow] {result.get('skipped', 0)}")
-        console.print(f"  [magenta]Errors:[/magenta] {result.get('errors', 0)}")
+        console.print(f"  [magenta]Errors:[/magenta]  {result.get('errors', 0)}")
         console.print(f"  [blue]Duration:[/blue] {result.get('duration', 0):.2f}s")
         
         # Success message
         console.print("\n[green]✅ Test execution completed![/green]")
-
+        console.print(f"[dim]💡 Run 'testgen report {resolved_project_dir}' to generate a report[/dim]")
         
     except Exception as e:
         console.print(f"[red]❌ Error during test execution: {e}[/red]")
@@ -310,11 +424,19 @@ def test(
 
 @app.command()
 def report(
+    project_dir: Optional[Path] = typer.Argument(
+        None,
+        help="Project directory to generate report for (default: current directory)",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
     output_path: Optional[Path] = typer.Option(
         None,
         "--output",
         "-o",
-        help="Output file path for report (default: ./reports/testgen-report.html)",
+        help="Output file path for report (default: <project_dir>/TestGen-AI/reports/report_<timestamp>.html)",
     ),
     pdf: bool = typer.Option(
         False,
@@ -330,37 +452,46 @@ def report(
     """
     Generate a test report from cached results.
     
-    Creates beautiful HTML or PDF reports with test results, coverage, and charts.
+    Creates beautiful HTML reports with test results, coverage, and charts.
+    Reports are saved inside the project directory for easy access.
     
     Examples:
-        testgen report
-        testgen report --pdf
-        testgen report --output ./my-report.html
+        testgen report ./my-project
+        testgen report ./my-project --no-open
+        testgen report ./my-project --output ./my-report.html
     """
+    from datetime import datetime
+
     try:
-        # Determine output format and path
-        if pdf and not output_path:
-            output_path = Path(config.report_output_dir) / "testgen-report.pdf"
-        elif not output_path:
-            output_path = Path(config.report_output_dir) / "testgen-report.html"
+        # Resolve project directory (default: CWD)
+        resolved_project_dir = project_dir or Path.cwd()
         
+        # Determine output path: <project>/TestGen-AI/reports/ with timestamped name
+        if not output_path:
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            ext = "pdf" if pdf else "html"
+            report_dir = resolved_project_dir / "TestGen-AI" / "reports"
+            report_dir.mkdir(parents=True, exist_ok=True)
+            output_path = report_dir / f"report_{timestamp}.{ext}"
+
         format_type = "PDF" if pdf else "HTML"
         
         # Display start message
         console.print(Panel.fit(
             f"[bold cyan]Report Generation Started[/bold cyan]\n\n"
-            f"📊 Format: [yellow]{format_type}[/yellow]\n"
-            f"📝 Output: [green]{output_path}[/green]\n"
-            f"🌐 Open in Browser: [yellow]{'Yes' if open_browser and not pdf else 'No'}[/yellow]",
+            f"📁 Project:  [green]{resolved_project_dir}[/green]\n"
+            f"📊 Format:   [yellow]{format_type}[/yellow]\n"
+            f"📝 Output:   [green]{output_path}[/green]\n"
+            f"🌐 Browser:  [yellow]{'Yes' if open_browser and not pdf else 'No'}[/yellow]",
             title="📈 TestGen AI",
             border_style="cyan"
         ))
         
         if state.verbose:
+            console.print(f"[dim]Project dir: {resolved_project_dir.absolute()}[/dim]")
             console.print(f"[dim]Output path: {output_path.absolute()}[/dim]")
-            console.print(f"[dim]Format: {format_type}[/dim]")
         
-        # Initialize WorkflowManager
+        # Initialize WorkflowManager anchored to the project directory
         from testgen.manager import WorkflowManager
         
         workflow_config = {
@@ -370,20 +501,18 @@ def report(
         }
         
         manager = WorkflowManager(
+            project_path=str(resolved_project_dir),
             config=workflow_config,
             use_timestamp_folders=False
         )
         
-        # Check if we have cached test results
+        # Load cached test results
         console.print("\n[yellow]📂 Loading test results...[/yellow]")
-        
-        # Get last execution state
         state_info = manager.get_state()
         
         if not state_info.get('test_results'):
             console.print("[yellow]⚠️  No test results found in cache[/yellow]")
-            console.print("[dim]💡 Hint: Run 'testgen test' or 'testgen auto' first[/dim]")
-            # Generate a report anyway with empty results
+            console.print("[dim]💡 Hint: Run 'testgen test <project_dir>' first[/dim]")
             test_results = {
                 'total': 0,
                 'passed': 0,
@@ -398,11 +527,7 @@ def report(
         # Generate report
         console.print(f"\n[yellow]📊 Generating {format_type} report...[/yellow]")
         
-        if pdf:
-            console.print("[yellow]⚠️  PDF generation not yet implemented[/yellow]")
-            console.print("[dim]Falling back to HTML format[/dim]")
-        
-        report_format = 'html'  # TODO: Add PDF support
+        report_format = 'pdf' if pdf else 'html'
         report_path = manager.execute_report(
             results=test_results,
             format=report_format
@@ -410,10 +535,10 @@ def report(
         
         # Success message
         console.print(f"\n[green]✅ Report generated successfully![/green]")
-        console.print(f"[green]📄 Report saved to: {report_path}[/green]")
+        console.print(f"[green]📄 Report: {report_path}[/green]")
         
         # Open in browser if requested
-        if open_browser and not pdf:
+        if open_browser and not pdf and report_path:
             import webbrowser
             webbrowser.open(f"file://{Path(report_path).absolute()}")
             console.print("[cyan]🌐 Opened report in browser[/cyan]")

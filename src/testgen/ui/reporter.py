@@ -1141,6 +1141,215 @@ class ReportGenerator:
         
         return str(output_file.absolute())
     
+    def generate_pdf(
+        self,
+        results: ExecutionSummary,
+        output_path: str
+    ) -> str:
+        """
+        Generate a PDF report from test execution results using reportlab.
+
+        Args:
+            results: ExecutionSummary containing test results
+            output_path: Path where the PDF report will be saved
+
+        Returns:
+            Path to the generated PDF report
+        """
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import cm
+            from reportlab.lib import colors
+            from reportlab.platypus import (
+                SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+            )
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        except ImportError:
+            raise ImportError(
+                "reportlab is required for PDF generation. "
+                "Install it with: pip install reportlab"
+            )
+
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        doc = SimpleDocTemplate(
+            str(output_file),
+            pagesize=A4,
+            rightMargin=2 * cm,
+            leftMargin=2 * cm,
+            topMargin=2 * cm,
+            bottomMargin=2 * cm,
+        )
+
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            'TGTitle',
+            parent=styles['Heading1'],
+            fontSize=22,
+            spaceAfter=6,
+            textColor=colors.HexColor('#1f2937'),
+            alignment=TA_LEFT,
+        )
+        subtitle_style = ParagraphStyle(
+            'TGSubtitle',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#6b7280'),
+            spaceAfter=4,
+        )
+        section_style = ParagraphStyle(
+            'TGSection',
+            parent=styles['Heading2'],
+            fontSize=13,
+            spaceBefore=18,
+            spaceAfter=8,
+            textColor=colors.HexColor('#1e40af'),
+        )
+        body_style = styles['BodyText']
+
+        # Determine status colour
+        if results.failed > 0:
+            status_color = colors.HexColor('#dc2626')
+            status_text = 'FAILED'
+        elif results.passed == results.total and results.total > 0:
+            status_color = colors.HexColor('#16a34a')
+            status_text = 'PASSED'
+        elif results.total == 0:
+            status_color = colors.HexColor('#6b7280')
+            status_text = 'NO TESTS'
+        else:
+            status_color = colors.HexColor('#d97706')
+            status_text = 'PARTIAL'
+
+        story = []
+
+        # ── Header ────────────────────────────────────────────────────
+        story.append(Paragraph(f"🧪 {results.project_name}", title_style))
+        story.append(Paragraph(
+            f"Generated: {results.timestamp.strftime('%Y-%m-%d %H:%M:%S')}   |   "
+            f"Language: {(results.language or 'Python').upper()}",
+            subtitle_style
+        ))
+
+        # Status badge (coloured table cell)
+        status_data = [[Paragraph(f'<b>{status_text}</b>', ParagraphStyle(
+            'badge', parent=styles['Normal'], textColor=colors.white,
+            alignment=TA_CENTER, fontSize=11
+        ))]]
+        status_table = Table(status_data, colWidths=[5 * cm], rowHeights=[1.1 * cm])
+        status_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), status_color),
+            ('ROUNDEDCORNERS', [6]),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(Spacer(1, 0.3 * cm))
+        story.append(status_table)
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e5e7eb'), spaceAfter=10))
+
+        # ── Summary Table ─────────────────────────────────────────────
+        story.append(Paragraph("Summary", section_style))
+
+        summary_data = [
+            ['Metric', 'Value'],
+            ['Total Tests', str(results.total)],
+            ['Passed', str(results.passed)],
+            ['Failed', str(results.failed)],
+            ['Skipped', str(results.skipped)],
+            ['Duration', f"{results.duration:.2f}s"],
+            ['Success Rate', f"{results.success_rate:.1f}%"],
+        ]
+
+        summary_table = Table(summary_data, colWidths=[8 * cm, 8 * cm])
+        summary_table.setStyle(TableStyle([
+            # Header row
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#f9fafb'), colors.white]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+            # Colour the value cells for failed/passed rows
+            ('TEXTCOLOR', (1, 3), (1, 3), colors.HexColor('#dc2626')),  # failed value
+            ('TEXTCOLOR', (1, 2), (1, 2), colors.HexColor('#16a34a')),  # passed value
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ]))
+        story.append(summary_table)
+
+        # ── Test Results Table ─────────────────────────────────────────
+        if results.results:
+            story.append(Paragraph("Test Results", section_style))
+
+            results_data = [['#', 'Test Name', 'Status', 'Duration']]
+            for i, test in enumerate(results.results, 1):
+                status = test.get('status', 'UNKNOWN')
+                name = test.get('test_name', 'Unknown')
+                duration = test.get('duration', 0.0)
+                results_data.append([str(i), name, status, f"{duration:.3f}s"])
+
+            # Build per-row colours for status column
+            style_cmds = [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('ALIGN', (2, 0), (2, -1), 'CENTER'),
+                ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#f9fafb'), colors.white]),
+                ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#e5e7eb')),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]
+            for i, test in enumerate(results.results, 1):
+                st = test.get('status', 'UNKNOWN')
+                if st == 'PASS':
+                    c = colors.HexColor('#16a34a')
+                elif st == 'FAIL':
+                    c = colors.HexColor('#dc2626')
+                elif st == 'SKIP':
+                    c = colors.HexColor('#d97706')
+                else:
+                    c = colors.HexColor('#6b7280')
+                style_cmds.append(('TEXTCOLOR', (2, i), (2, i), c))
+                style_cmds.append(('FONTNAME', (2, i), (2, i), 'Helvetica-Bold'))
+
+            results_table = Table(
+                results_data,
+                colWidths=[1.2 * cm, 10.5 * cm, 2.5 * cm, 2.8 * cm],
+                repeatRows=1,
+            )
+            results_table.setStyle(TableStyle(style_cmds))
+            story.append(results_table)
+        else:
+            story.append(Spacer(1, 0.5 * cm))
+            story.append(Paragraph("No individual test results recorded.", body_style))
+
+        # ── Footer ─────────────────────────────────────────────────────
+        story.append(Spacer(1, 1 * cm))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#d1d5db')))
+        story.append(Spacer(1, 0.2 * cm))
+        story.append(Paragraph(
+            "Generated by <b>TestGen AI</b> — The Autonomous QA Agent",
+            ParagraphStyle('footer', parent=styles['Normal'], fontSize=8,
+                           textColor=colors.HexColor('#9ca3af'), alignment=TA_CENTER)
+        ))
+
+        doc.build(story)
+        return str(output_file.absolute())
+
+
     def save_history(
         self,
         results: ExecutionSummary,
