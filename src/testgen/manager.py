@@ -447,6 +447,8 @@ class WorkflowManager:
             pass  # Never fail just because caching failed
 
         return self.state.test_results
+
+    def execute_report(
         self,
         results: Optional[Dict[str, Any]] = None,
         format: str = 'html'
