@@ -1,34 +1,91 @@
-# 🚀 TestGen AI
+﻿# 🚀 TestGen AI
 
-> **"The Autonomous QA Agent from Your CLI"**
+> **The Autonomous QA Agent from Your CLI**
 
+[![PyPI version](https://img.shields.io/pypi/v/testgen-ai.svg)](https://pypi.org/project/testgen-ai/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Status: In Development](https://img.shields.io/badge/status-in%20development-orange.svg)](https://github.com/JayPatil165/TestGen-AI)
+[![Docs](https://img.shields.io/badge/docs-live-brightgreen.svg)](https://JayPatil165.github.io/TestGen-AI/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-> ⚠️ **Project Status**: This project is currently under active development. Features described below are being implemented according to the [development roadmap](planning/TASKS.md).
+TestGen AI is a CLI tool that automatically generates, runs, and reports on test suites for your code using LLMs. Point it at a directory, set an API key, and let it handle the rest.
 
-A Python-based CLI package that acts as an **"Autonomous QA Pair-Programmer."** It lives in your terminal and automates the tedious parts of software testing: understanding code, writing test cases, running them, and formatting reports.
+---
 
-With **Watch Mode**, TestGen AI writes tests while you write code, enabling true **Test-Driven Development** without the overhead.
+## 📦 Installation
+
+```bash
+pip install testgen-ai
+```
+
+Verify:
+
+```bash
+testgen --version
+```
+
+---
+
+## ⚡ Quick Start
+
+### 1. Set your API key (one-time)
+
+```bash
+# Google Gemini (default — has a free tier)
+testgen config set GEMINI_API_KEY AIza...
+
+# OpenAI
+testgen config set OPENAI_API_KEY sk-...
+
+# Anthropic / Claude
+testgen config set ANTHROPIC_API_KEY sk-ant-...
+
+# Ollama (local, no key needed)
+testgen config set LLM_PROVIDER ollama
+```
+
+Keys are saved globally to `~/.testgen/.env` and apply to every project automatically.
+
+### 2. Generate tests
+
+```bash
+testgen generate ./src
+```
+
+### 3. Run tests
+
+```bash
+testgen test
+```
+
+### 4. Generate a report
+
+```bash
+testgen report
+```
+
+### 5. Or do everything in one shot
+
+```bash
+testgen auto ./src
+```
 
 ---
 
 ## ✨ Features
 
-- 🤖 **AI-Powered Test Generation** - Automatically generates comprehensive test suites using LLMs (OpenAI, Claude, Ollama)
-- 📊 **Beautiful Terminal Dashboard** - Rich, color-coded test execution matrix with real-time feedback
-- 👀 **Watch Mode** - Real-time TDD with automatic test generation as you code
-- 📈 **HTML/PDF Reports** - Professional test reports for stakeholders
-- ⚡ **Smart Context Extraction** - Intelligently parses code to minimize LLM costs
-- 🎯 **Multiple Test Frameworks** - Supports Pytest and Playwright for UI testing
-- 🔄 **One-Click Workflow** - `testgen auto` does everything: generate → test → report
+- 🤖 **AI-Powered Generation** — Uses GPT-4, Claude, Gemini, or local Ollama to write real test cases, not boilerplate
+- 🌍 **14 Languages** — Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby, PHP, Swift, Kotlin, C++, HTML, CSS
+- 👀 **Watch Mode** — Detects file saves and regenerates tests in real time (`--watch`)
+- 📊 **Terminal Dashboard** — Color-coded test matrix with pass/fail/skip/duration per test
+- 📈 **HTML Reports** — Professional reports with metrics, coverage insights, and execution distributions
+- ⚡ **Smart Context** — AST-based extraction sends only relevant code to the LLM, keeping token costs low
+- 🔄 **One-command Workflow** — `testgen auto` runs the full generate → execute → report pipeline
 
 ---
 
-## 🎯 The "AGER" Architecture
+## 🎯 The AGER Architecture
 
-TestGen AI operates on a localized 4-step loop:
+TestGen AI operates on a 4-step loop:
 
 ```
 ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
@@ -37,156 +94,31 @@ TestGen AI operates on a localized 4-step loop:
 └──────────┘     └──────────┘     └──────────┘     └──────────┘
 ```
 
-### A - Analyze (The Scanner)
-- Reads your project directory
-- Filters noise (`node_modules`, `.git`, etc.)
-- Extracts function signatures and docstrings for large files
-- Keeps LLM costs low with smart context management
-
-### G - Generate (The Brain)
-- Sends context to LLMs (OpenAI/Ollama/Claude)
-- Receives executable Python/Pytest code
-- Writes test files to the `tests/` directory
-- **Watch Mode**: Listens for file saves and triggers generation instantly
-
-### E - Execute (The Runner)
-- Identifies test types (Unit vs. UI)
-- Runs test frameworks (Pytest/Playwright) in subprocesses
-- Captures logs and exit codes
-
-### R - Report (The Visuals)
-- Parses execution data
-- Renders beautiful CLI matrices
-- Compiles persistent HTML reports
-
----
-
-## 📦 Installation
-
-> ⚠️ **Note**: TestGen AI is currently in development. Installation from PyPI will be available after v1.0 release.
-
-### Prerequisites
-- Python 3.10 or higher
-- pip package manager
-
-### Install from Source (Development)
-```bash
-# Clone the repository
-git clone https://github.com/JayPatil165/TestGen-AI.git
-cd TestGen-AI
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies (when available)
-pip install -e .
-```
-
-**Current Status**: The project structure is being built. See [planning/TASKS.md](planning/TASKS.md) for progress tracking.
-
----
-
-## 🚀 Quick Start
-
-> ⚠️ **Coming Soon**: The following commands are planned features. Implementation is in progress - see [planning/TASKS.md](planning/TASKS.md) for current status.
-
-### 1. Configure API Keys
-
-Create a `.env` file in your project root:
-
-```bash
-OPENAI_API_KEY=sk-your-key-here
-# OR
-ANTHROPIC_API_KEY=your-claude-key
-# OR use Ollama (local, no API key needed)
-```
-
-### 2. Run Your First Test Generation (Planned)
-
-```bash
-# Generate tests for your project
-testgen generate ./src
-
-# Run the generated tests
-testgen test
-
-# Generate HTML report
-testgen report
-
-# Or do everything at once (God Mode)
-testgen auto
-```
-
-### 3. Enable Watch Mode (Planned)
-
-```bash
-# Watch your code and auto-generate tests as you type
-testgen generate ./src --watch
-```
+| Phase | What happens |
+|-------|-------------|
+| **Analyze** | Scans your directory, extracts function signatures and docstrings to build minimal context |
+| **Generate** | Sends context to your LLM and receives executable test code |
+| **Execute** | Runs the generated tests via the appropriate framework (pytest, Jest, cargo test, etc.) |
+| **Report** | Renders a live terminal matrix and compiles an HTML report |
 
 ---
 
 ## 🎨 CLI Commands
 
-### Command Matrix
-
-| Command | Purpose | What It Does | Special Flags |
-|---------|---------|--------------|---------------|
-| `testgen generate` | Create test files | Analyzes code → Calls LLM → Saves tests | `--watch` (Live AI) |
-| `testgen test` | Run existing tests | Executes tests → Shows status | `--verbose` |
-| `testgen report` | Generate documentation | Creates HTML/PDF report | `--pdf` |
-| `testgen auto` | Do everything | Full pipeline (One-click) | N/A |
-
-### Detailed Command Usage
-
-#### Generate Tests
-```bash
-# Generate tests for a specific directory
-testgen generate ./src
-
-# Generate with live watch mode
-testgen generate ./src --watch
-
-# Specify output directory
-testgen generate ./src --output ./tests
-```
-
-#### Run Tests
-```bash
-# Run all tests
-testgen test
-
-# Run with verbose output
-testgen test --verbose
-
-# Run specific test pattern
-testgen test --pattern "test_user*"
-```
-
-#### Generate Reports
-```bash
-# Generate HTML report
-testgen report
-
-# Generate PDF report
-testgen report --pdf
-
-# Specify output path
-testgen report --output ./reports/test_report.html
-```
-
-#### Auto Mode (God Mode)
-```bash
-# Do everything: generate → test → report
-testgen auto ./src
-```
+| Command | What it does |
+|---------|-------------|
+| `testgen generate <path>` | Generate tests for all source files in `<path>` |
+| `testgen generate <path> --watch` | Watch mode — regenerate on every save |
+| `testgen test` | Run all generated tests |
+| `testgen test --verbose` | Run with full output |
+| `testgen report` | Build an HTML test report |
+| `testgen auto <path>` | Full pipeline: generate → test → report |
+| `testgen config set KEY VALUE` | Save a config value globally |
+| `testgen config show` | Print current global config |
 
 ---
 
-## 📊 Terminal Dashboard
-
-When tests execute, you'll see a beautiful matrix like this:
+## 📊 Terminal Output
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
@@ -204,232 +136,120 @@ When tests execute, you'll see a beautiful matrix like this:
 Summary: 4 passed, 1 failed, 0 skipped | Total: 6.57s
 ```
 
-### Color Coding
-- ✔ **PASS**: Bold Green
-- ✘ **FAIL**: Bold Red  
-- ⊘ **SKIP**: Yellow
-- **Duration**: <1s Green, 1-5s Yellow, >5s Red (Warning)
-
 ---
 
-## 🛠️ Technology Stack
+## 🌍 Supported Languages
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **Language** | Python 3.10+ | Modern syntax with pattern matching |
-| **CLI Framework** | Typer | Type-hint based command validation |
-| **Terminal UI** | Rich | Tables, spinners, syntax highlighting |
-| **AI Layer** | LiteLLM | Model-agnostic (GPT/Claude/Ollama) |
-| **Validation** | Pydantic | Strict JSON output from LLMs |
-| **File Watching** | Watchdog | OS-level events (inotify/FSEvents) |
-| **Testing Core** | Pytest | Test execution engine |
-| **UI Testing** | Playwright | Headless browser automation |
-| **Reporting** | Jinja2 | HTML/PDF template rendering |
+| Language | Test Framework Used |
+|----------|-------------------|
+| Python | pytest |
+| JavaScript | Jest |
+| TypeScript | Jest |
+| Go | go test |
+| Rust | cargo test |
+| Java | JUnit |
+| C# | NUnit / xUnit |
+| Ruby | RSpec |
+| PHP | PHPUnit |
+| Swift | XCTest |
+| Kotlin | JUnit |
+| C++ | Google Test |
+| HTML | Custom HTML validator |
+| CSS | Custom CSS linter |
 
----
-
-## 📁 Project Structure
-
-```
-testgen-ai/
-├── planning/                # Project management
-│   ├── TASKS.md                 # Development tasks (154 total)
-│   └── PROGRESS.md              # Completion tracking
-├── docs/                    # User documentation
-│   └── getting-started.md       # Quick start guide
-├── src/
-│   └── testgen/
-│       ├── __init__.py
-│       ├── main.py          # CLI Entry Point (Typer)
-│       ├── manager.py       # Workflow Orchestrator
-│       ├── config.py        # Settings & API Keys
-│       ├── core/            # Backend Logic
-│       │   ├── scanner.py       # Code analyzer
-│       │   ├── llm.py           # AI integration
-│       │   ├── runner.py        # Test executor
-│       │   └── watcher.py       # Watch mode handler
-│       ├── ui/              # Frontend Visuals
-│       │   ├── printer.py       # Terminal matrix renderer
-│       │   └── reporter.py      # HTML/PDF generator
-│       └── mcp/             # Model Context Protocol
-├── tests/                   # Test suite
-├── examples/                # Example projects
-├── .env.example             # Environment variables template
-├── pyproject.toml           # Configuration & Dependencies
-└── README.md                # This file
-```
-
----
-
-## 🎓 Usage Examples
-
-### Example 1: Generate Tests for a Python Module
-
-```bash
-# Your project structure
-my_app/
-├── calculator.py
-└── utils.py
-
-# Generate tests
-testgen generate ./my_app
-
-# Result: tests/ directory created
-tests/
-├── test_calculator.py
-└── test_utils.py
-```
-
-### Example 2: Watch Mode for TDD
-
-```bash
-# Start watch mode
-testgen generate ./src --watch --auto-run
-
-# Now edit src/user.py
-# → TestGen AI detects change
-# → Generates tests/test_user.py
-# → Runs tests automatically
-# → Shows results in terminal
-```
-
-### Example 3: CI/CD Integration
-
-```yaml
-# .github/workflows/test.yml
-name: Test
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install TestGen AI
-        run: pip install testgen-ai
-      - name: Generate and Run Tests
-        run: testgen auto ./src
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-```
+> The target language's runtime (Node, Go, JDK, etc.) must be installed on your machine. `pip install testgen-ai` only installs the TestGen AI tool itself.
 
 ---
 
 ## ⚙️ Configuration
 
-Create a `.env` file in your project root:
+Config can be set globally (persists across all projects):
 
 ```bash
-# LLM Provider (choose one)
-OPENAI_API_KEY=sk-your-key-here
-ANTHROPIC_API_KEY=your-claude-key
+testgen config set GEMINI_API_KEY AIza...
+testgen config set LLM_MODEL gemini-2.0-flash
+testgen config set LLM_PROVIDER gemini
+```
 
-# Model Selection
-LLM_MODEL=gpt-4                    # or gpt-3.5-turbo, claude-3, ollama/codellama
+Or per-project via a `.env` file in the project root (overrides global):
 
-# Test Generation Settings
-TEST_FRAMEWORK=pytest              # or unittest
+```env
+OPENAI_API_KEY=sk-project-key
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o
 TEST_OUTPUT_DIR=./tests
 MAX_CONTEXT_TOKENS=8000
-
-# Watch Mode Settings
-WATCH_DEBOUNCE_SECONDS=2
-WATCH_AUTO_RUN=true
 ```
+
+### Supported Providers
+
+| Provider | Key name | Default model |
+|----------|---------|---------------|
+| Google Gemini | `GEMINI_API_KEY` | `gemini-2.0-flash` |
+| OpenAI | `OPENAI_API_KEY` | `gpt-4o` |
+| Anthropic | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet` |
+| Ollama (local) | *(none)* | `llama3` |
+
+---
+
+## 🔧 Optional: Browser / UI Testing
+
+For Playwright-based UI test generation:
+
+```bash
+pip install testgen-ai[browser]
+playwright install
+```
+
+The `playwright install` step downloads browser binaries and is a one-time setup per machine.
+
+---
+
+## 🛠️ Technology Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Language | Python 3.10+ |
+| CLI Framework | Typer |
+| Terminal UI | Rich |
+| AI Layer | LiteLLM (model-agnostic) |
+| Validation | Pydantic |
+| File Watching | Watchdog |
+| Testing Core | pytest |
+| UI Testing | Playwright (optional) |
+| Reporting | Jinja2 |
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how to get started:
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes** following our coding standards
-4. **Run tests**: `pytest`
-5. **Commit your changes**: `git commit -m 'Add amazing feature'`
-6. **Push to branch**: `git push origin feature/amazing-feature`
-7. **Open a Pull Request**
-
-See [planning/TASKS.md](planning/TASKS.md) for the development roadmap.
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make your changes
+4. Run tests: `pytest`
+5. Commit: `git commit -m "Add my feature"`
+6. Push: `git push origin feature/my-feature`
+7. Open a Pull Request
 
 ---
 
-## 📝 Development Roadmap
+## 📚 Documentation
 
-The project is organized into **11 modules** with **154 sequential tasks**. See [planning/TASKS.md](planning/TASKS.md) for complete details.
-
-### Current Status: Planning & Foundation Phase
-
-- ✅ **Planning Complete**: Project structure defined, tasks mapped
-- 🟡 **Module 0**: Project Setup (In Progress - Tasks 1-9)
-- ⬜ **Module 1**: CLI Framework (Upcoming - Tasks 10-21)
-- ⬜ **Module 2**: Code Scanner (Planned - Tasks 22-32)
-- ⬜ **Module 3**: LLM Integration (Planned - Tasks 33-46)
-- ⬜ **Module 4**: Test Runner (Planned - Tasks 47-58)
-- ⬜ **Module 5**: Watch Mode (Planned - Tasks 59-68)
-- ⬜ **Module 6**: Terminal UI (Planned - Tasks 69-79)
-- ⬜ **Module 7**: Report Generation (Planned - Tasks 80-91)
-- ⬜ **Module 8**: Workflow Orchestration (Planned - Tasks 92-103)
-- ⬜ **Module 9**: Integration Testing (Planned - Tasks 104-119)
-- ⬜ **Module 10**: Documentation & Deployment (Planned - Tasks 120-140)
-
-**Overall Progress**: 0/154 tasks completed (0%) · [View Progress](planning/PROGRESS.md)
-
-See the [full task breakdown](planning/TASKS.md) for detailed implementation steps.
+Full documentation: **[JayPatil165.github.io/TestGen-AI](https://JayPatil165.github.io/TestGen-AI/)**
 
 ---
 
-## 🐛 Troubleshooting
+## 📧 Contact
 
-### Issue: "API Key not found"
-**Solution**: Create a `.env` file with your API key:
-```bash
-echo "OPENAI_API_KEY=sk-your-key" > .env
-```
-
-### Issue: "No tests generated"
-**Solution**: Ensure your code files have docstrings and are not empty. TestGen AI works best with well-documented code.
-
-### Issue: "Command not found: testgen"
-**Solution**: Install in editable mode or add to PATH:
-```bash
-pip install -e .
-# OR
-export PATH="$PATH:$HOME/.local/bin"
-```
-
----
-
-## 📄 License
-
-**License**: To be determined. This project is currently in development.
-
-Once released, a license will be added to define usage terms.
-
----
-
-## 🙏 Acknowledgments
-
-- Built with [Typer](https://typer.tiangolo.com/) for the CLI
-- Powered by [Rich](https://rich.readthedocs.io/) for beautiful terminal output
-- AI integration via [LiteLLM](https://github.com/BerriAI/litellm)
-- Inspired by the need for better developer tooling in the AI era
-
----
-
-## 📧 Contact & Support
-
-- **Author**: Jay Patil
+- **Author**: Jay Ajitkumar Patil
+- **Email**: [patiljay32145@gmail.com](mailto:patiljay32145@gmail.com)
 - **GitHub**: [@JayPatil165](https://github.com/JayPatil165)
+- **LinkedIn**: [jay-patil-4ab857326](https://www.linkedin.com/in/jay-patil-4ab857326/)
 - **Issues**: [GitHub Issues](https://github.com/JayPatil165/TestGen-AI/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/JayPatil165/TestGen-AI/discussions)
 
 ---
 
 <p align="center">
-  <strong>⭐ Star this repo if you find it useful! ⭐</strong>
-</p>
-
-<p align="center">
+  <strong>⭐ Star this repo if TestGen AI saves you time! ⭐</strong><br>
   Made with ❤️ by developers, for developers
 </p>

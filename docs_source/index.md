@@ -1,28 +1,62 @@
-# TestGen-AI: Autonomous Quality Assurance Agent
+# 🚀 TestGen AI
 
-TestGen-AI is a professional command-line utility designed to automate the software testing lifecycle using state-of-the-art Large Language Models (LLMs). By leveraging advanced code analysis and generative AI, it streamlines the creation, execution, and reporting of unit tests across diverse programming environments.
+> **The Autonomous QA Agent from Your CLI**
 
-## Technical Architecture
+TestGen AI is a CLI tool that automatically generates, runs, and reports on test suites for your code using LLMs. Point it at a directory, set an API key, and let it handle the rest.
 
-The platform is built on a modular architecture that ensures scalability and precision:
+## Install
 
-- **Core Engine**: Implemented in Python 3.10+, utilizing Pydantic for robust data validation and settings management.
-- **Context Extraction**: Employs advanced AST-based analysis and Tree-sitter integration to extract precise code context (classes, functions, imports) without necessitating full file transfers.
-- **LLM Integration**: Powered by LiteLLM, providing a unified interface to multiple provider backends including OpenAI, Anthropic, Google Gemini, and local Ollama instances.
-- **Cross-Platform Runner**: A standardized execution layer capable of orchestrating native test runners (pytest, Jest, JUnit, cargo test, etc.) across 14+ programming languages.
-- **Intelligence Layer**: Uses sophisticated prompting and few-shot learning to generate high-coverage, framework-compliant test suites.
+```bash
+pip install testgen-ai
+```
 
-## Key Capabilities
+## Quick Start
 
-- **Autonomous Workflow**: The `auto` command manages scanning, generation, and verification in a single atomic operation.
-- **Incremental Watch Mode**: Real-time monitoring of source directories with smart invalidation logic to regenerate tests only when relevant code changes are detected.
-- **Multi-Language Support**: Native support for Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby, PHP, Swift, Kotlin, C++, HTML, and CSS.
-- **Analytical Reporting**: Generates interactive HTML and JSON reports featuring pass/fail metrics, coverage insights, and execution distributions.
+```bash
+# Set your API key once (saved globally)
+testgen config set GEMINI_API_KEY AIza...
 
-## Professional Integration
+# Generate tests for your project
+testgen generate ./src
 
-TestGen-AI is designed to integrate seamlessly into existing CI/CD pipelines and local development environments. It prioritizes data privacy by minimizing the context sent to external APIs and supports local LLM execution for sensitive codebases.
+# Run them
+testgen test
+
+# Or do everything at once
+testgen auto ./src
+```
+
+## What it does
+
+TestGen AI follows the **AGER** loop:
+
+| Phase | What happens |
+|-------|-------------|
+| **Analyze** | Scans your code and extracts function signatures with minimal token usage |
+| **Generate** | Calls your LLM (GPT-4, Claude, Gemini, or Ollama) to write real test cases |
+| **Execute** | Runs the tests via the appropriate framework (pytest, Jest, cargo test, etc.) |
+| **Report** | Renders a live terminal matrix and builds an HTML report |
+
+## Features
+
+- 🤖 **AI-powered** — real tests, not boilerplate
+- 🌍 **14 languages** — Python, JS/TS, Go, Rust, Java, C#, Ruby, PHP, Swift, Kotlin, C++, HTML, CSS
+- 👀 **Watch mode** — regenerates tests on every file save (`--watch`)
+- 📊 **Terminal dashboard** — color-coded pass/fail matrix
+- 📈 **HTML reports** — metrics, coverage, execution breakdowns
+- ⚡ **Smart context** — AST extraction keeps LLM costs low
+
+## Supported LLM Providers
+
+| Provider | Key name | Default model |
+|----------|---------|---------------|
+| Google Gemini | `GEMINI_API_KEY` | `gemini-2.0-flash` |
+| OpenAI | `OPENAI_API_KEY` | `gpt-4o` |
+| Anthropic | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet` |
+| Ollama (local) | *(none)* | `llama3` |
+
+See the [Installation](installation.md) guide to get started.
 
 ---
 
-For technical inquiries or contributions, contact: [patiljay32145@gmail.com](mailto:patiljay32145@gmail.com)
+Built by [Jay Ajitkumar Patil](https://github.com/JayPatil165) · [patiljay32145@gmail.com](mailto:patiljay32145@gmail.com)

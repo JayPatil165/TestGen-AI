@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "testgen-ai"
-version = "0.1.0"
+version = "0.1.1"
 description = "The Autonomous QA Agent from Your CLI - AI-powered test generation and execution"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,7 +22,7 @@ keywords = [
     "tdd"
 ]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
