@@ -12,9 +12,19 @@ from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Global config directory in the user's home folder (~/.testgen/.env).
+# This is where `testgen config set KEY VALUE` writes keys so they work
+# across every project and directory on the machine.
+GLOBAL_CONFIG_DIR = Path.home() / ".testgen"
+GLOBAL_ENV_FILE = GLOBAL_CONFIG_DIR / ".env"
+
 
 class LLMProvider(str, Enum):
-    """Supported LLM providers."""
+    """Supported Large Language Model providers.
+
+    TestGen AI provides native support for these platforms, leveraging
+    either direct SDKs or the LiteLLM abstraction layer.
+    """
     
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -23,24 +33,33 @@ class LLMProvider(str, Enum):
 
 
 class TestFramework(str, Enum):
-    """Supported test frameworks."""
+    """Supported testing frameworks.
+
+    Defines the specific toolsets used for generating and executing unit tests.
+    """
     
     PYTEST = "pytest"
     UNITTEST = "unittest"
 
 
 class Config(BaseSettings):
-    """
-    Main configuration class for TestGen AI.
-    
-    All settings can be configured via:
-    1. Environment variables (highest priority)
-    2. .env file
-    3. Default values (lowest priority)
+    """The central configuration repository for TestGen AI.
+
+    This class manages all runtime settings, from API keys and model
+    selection to file scanning rules and reporting preferences. It
+    utilizes Pydantic's `BaseSettings` to provide a robust hierarchy of
+    configuration sources:
+
+    1. Environment variables (highest priority).
+    2. `.env` file within the project root.
+    3. Default values specified in the schema.
     """
     
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Load order: global file first, then local .env (local wins on conflict).
+        # This lets a user run `testgen config set KEY VALUE` once and have it work
+        # from any directory, while still allowing per-project overrides via .env.
+        env_file=[str(GLOBAL_ENV_FILE), ".env"],
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",

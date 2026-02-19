@@ -14,10 +14,11 @@ from .base_runner import BaseTestRunner, TestResults, TestResult
 
 
 class PythonTestRunner(BaseTestRunner):
-    """
-    Test runner for Python projects using pytest.
-    
-    Inherits from BaseTestRunner and implements Python/pytest-specific logic.
+    """An automated test runner for Python projects using the Pytest framework.
+
+    This runner handles environment setup, test discovery, execution, and
+    result parsing. it supports cross-platform execution and can produce
+    structured JSON reports for further analysis.
     """
     
     def __init__(self, verbose: bool = False, capture_output: bool = True, project_dir: Optional[str] = None):
@@ -35,105 +36,6 @@ class PythonTestRunner(BaseTestRunner):
     
     # ... (get_language, get_framework, etc. remain the same)
 
-    def run_tests(
-        self,
-        test_dir: str,
-        pattern: Optional[str] = None,
-        json_report: bool = False,
-        json_report_file: Optional[str] = None,
-        **kwargs
-    ) -> TestResults:
-        """
-        Run Python tests with pytest.
-        
-        Args:
-            test_dir: Directory containing tests
-            pattern: File pattern
-            json_report: Enable JSON reporting
-            json_report_file: JSON report file path
-            **kwargs: Additional pytest arguments
-            
-        Returns:
-            TestResults
-        """
-        test_path = Path(test_dir)
-        
-        if not test_path.exists():
-            return TestResults(
-                total=0,
-                errors=1,
-                language=self.get_language(),
-                framework=self.get_framework()
-            )
-        
-        # Build command
-        cmd = self.build_command(
-            test_dir,
-            pattern,
-            json_report=json_report,
-            json_report_file=json_report_file,
-            **kwargs
-        )
-        
-        if self.verbose:
-            print(f"Running: {' '.join(cmd)}")
-        
-        # Execute tests
-        try:
-            # Set up environment with PYTHONPATH to include project root
-            import os
-            env = os.environ.copy()
-            if self.project_dir:
-                project_path = str(Path(self.project_dir).resolve())
-                if 'PYTHONPATH' in env:
-                    env['PYTHONPATH'] = f"{project_path}{os.pathsep}{env['PYTHONPATH']}"
-                else:
-                    env['PYTHONPATH'] = project_path
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=self.capture_output,
-                text=True,
-                cwd=Path.cwd(),
-                timeout=300,
-                env=env
-            )
-            
-            # Try to parse JSON report if available
-            if json_report and json_report_file:
-                json_path = Path(json_report_file)
-                if json_path.exists():
-                    try:
-                        with open(json_path, 'r', encoding='utf-8') as f:
-                            json_data = json.load(f)
-                        return self._parse_json_report(json_data)
-                    except Exception as e:
-                        if self.verbose:
-                            print(f"Failed to parse JSON: {e}")
-                        # Fall back to text parsing
-            
-            # Parse text output
-            # Parse text output
-            return self._parse_text_output(result)
-        
-        except subprocess.TimeoutExpired:
-            if self.verbose:
-                print("Test execution timed out")
-            return TestResults(
-                language=self.get_language(),
-                framework=self.get_framework(),
-                total=0,
-                errors=1
-            )
-        except Exception as e:
-            if self.verbose:
-                print(f"Error running tests: {e}")
-            return TestResults(
-                language=self.get_language(),
-                framework=self.get_framework(),
-                total=0,
-                errors=1
-            )
     
     def get_language(self) -> str:
         """Get language name."""
@@ -201,15 +103,17 @@ class PythonTestRunner(BaseTestRunner):
         test_dir: str,
         pattern: Optional[str] = None
     ) -> int:
-        """
-        Count Python test functions.
-        
+        """Estimate the total number of test functions across all discovered files.
+
+        Uses AST parsing to accurately count functions that start with 'test'
+        or are within 'Test' classes, without needing to execute the code.
+
         Args:
-            test_dir: Directory containing tests
-            pattern: File pattern
-            
+            test_dir (str): The directory containing test files.
+            pattern (Optional[str]): A glob pattern for file filtering.
+
         Returns:
-            Total number of test functions
+            int: The total count of identified test functions.
         """
         test_files = self.discover_tests(test_dir, pattern)
         total_tests = 0
@@ -245,18 +149,17 @@ class PythonTestRunner(BaseTestRunner):
         json_report_file: Optional[str] = None,
         **kwargs
     ) -> List[str]:
-        """
-        Build pytest command.
-        
+        """Construct the full pytest command-line call.
+
         Args:
-            test_dir: Test directory
-            pattern: Test pattern
-            json_report: Enable JSON reporting
-            json_report_file: JSON report file path
-            **kwargs: Additional pytest arguments
-            
+            test_dir (str): Targeted test directory.
+            pattern (Optional[str]): File filtering pattern.
+            json_report (bool): If True, appends JSON reporting flags.
+            json_report_file (Optional[str]): Path for the JSON output.
+            **kwargs: Extra flags (e.g., 'verbose', 'junitxml').
+
         Returns:
-            Command list
+            List[str]: The complete command as a list of strings for `subprocess.run`.
         """
         cmd = ["python", "-m", "pytest"]
         
@@ -291,7 +194,15 @@ class PythonTestRunner(BaseTestRunner):
         return cmd
     
     def _inject_conftest(self, test_dir: Path) -> None:
-        """Inject conftest.py to setup sys.path."""
+        """Automatically create a conftest.py file to handle cross-project imports.
+
+        This ensures that when pytest runs, the source code directory is
+        correctly added to `sys.path`, allowing tests to import the project
+        modules regardless of the current working directory.
+
+        Args:
+            test_dir (Path): The directory where the conftest.py should be created.
+        """
         conftest_path = test_dir / "conftest.py"
         if conftest_path.exists():
             return
@@ -337,22 +248,30 @@ if _project_root_str not in sys.path:
         json_report_file: Optional[str] = None,
         **kwargs
     ) -> TestResults:
-        """
-        Run Python tests with pytest.
-        
+        """Execute Python tests using pytest.
+
+        This method orchestrates the entire test execution flow: injecting
+        path configurations, building the command, managing the execution 
+        environment, and parsing the results back into a structured format.
+
         Args:
-            test_dir: Directory containing tests
-            pattern: File pattern
-            json_report: Enable JSON reporting
-            json_report_file: JSON report file path
-            **kwargs: Additional pytest arguments
-            
+            test_dir (str): The directory where tests are located.
+            pattern (Optional[str]): A glob pattern to filter test files.
+                Defaults to None (uses standard pytest discovery).
+            json_report (bool): Whether to request a JSON report from pytest.
+                Defaults to False.
+            json_report_file (Optional[str]): Path where the JSON report
+                should be saved. Required if `json_report` is True.
+            **kwargs: Additional keyword arguments passed directly to the
+                underlying `pytest` command construction.
+
         Returns:
-            TestResults
+            TestResults: An object containing aggregated counts and individual
+                test details.
         """
         test_path = Path(test_dir)
         
-        # Inject conftest.py
+        # Inject conftest.py to ensure the project modules are importable
         if test_path.exists():
             self._inject_conftest(test_path)
         
@@ -378,12 +297,23 @@ if _project_root_str not in sys.path:
         
         # Execute tests
         try:
+            # Set up environment with PYTHONPATH to include project root
+            import os
+            execute_env = os.environ.copy()
+            if self.project_dir:
+                project_path = str(Path(self.project_dir).resolve())
+                if 'PYTHONPATH' in execute_env:
+                    execute_env['PYTHONPATH'] = f"{project_path}{os.pathsep}{execute_env['PYTHONPATH']}"
+                else:
+                    execute_env['PYTHONPATH'] = project_path
+
             result = subprocess.run(
                 cmd,
                 capture_output=self.capture_output,
                 text=True,
                 cwd=Path.cwd(),
-                timeout=300
+                timeout=300,
+                env=execute_env
             )
             
             # Try to parse JSON report if available
@@ -428,6 +358,14 @@ if _project_root_str not in sys.path:
             )
     
     def _parse_json_report(self, json_data: Dict[str, Any]) -> TestResults:
+        """Parse the raw JSON output from the pytest-json-report plugin.
+
+        Args:
+            json_data (Dict[str, Any]): The deserialized JSON report.
+
+        Returns:
+            TestResults: A structured summary of the execution.
+        """
         """Parse pytest JSON report."""
         results = TestResults(
             language=self.get_language(),
@@ -457,6 +395,17 @@ if _project_root_str not in sys.path:
         return results
     
     def _parse_text_output(self, result: subprocess.CompletedProcess) -> TestResults:
+        """Heuristically parse the standard text output from a pytest run.
+
+        Used as a fallback when JSON reporting is unavailable. Extracts pass/fail
+        counts and high-level execution status.
+
+        Args:
+            result (subprocess.CompletedProcess): The execution result.
+
+        Returns:
+            TestResults: A best-effort summary of the test run.
+        """
         """Parse pytest text output."""
         output = result.stdout if self.capture_output else ""
         
@@ -509,14 +458,15 @@ if _project_root_str not in sys.path:
         return results
     
     def validate_test_file(self, test_file: str) -> bool:
-        """
-        Validate Python test file.
-        
+        """Check if a file is a valid Python test file using static analysis.
+
+        Verifies that the file exists and is syntactically correct Python.
+
         Args:
-            test_file: Path to test file
-            
+            test_file (str): Path to the file to validate.
+
         Returns:
-            True if valid
+            bool: True if the file is a valid, parsable Python file.
         """
         try:
             with open(test_file, 'r') as f:

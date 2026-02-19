@@ -57,10 +57,24 @@ class FileType(str, Enum):
 
 
 class CodeFile(BaseModel):
-    """Represents a scanned code file with extracted metadata.
-    
-    This Pydantic model provides structured data for LLM consumption,
-    including code signatures, metadata, and optional full content.
+    """Represents a scanned code file with extracted metadata and structural components.
+
+    This model serves as the primary data carrier for a single source file,
+    encapsulating its path, content analysis (functions, classes), and
+    token metrics necessary for LLM processing.
+
+    Attributes:
+        path (Path): Absolute path to the source file on disk.
+        relative_path (Path): Path of the file relative to the project root.
+        file_type (FileType): The identified programming language or file type.
+        size_bytes (int): Total file size in bytes.
+        line_count (int): Total number of lines in the file.
+        functions (List[str]): List of extracted function signatures or names.
+        classes (List[str]): List of extracted class definitions and methods.
+        imports (List[str]): List of modules or packages imported by this file.
+        content (Optional[str]): Full content of the file (if included/stored).
+        token_count (int): Estimated number of tokens for LLM context planning.
+        context_level (str): Granularity of extracted context (e.g., 'full', 'signatures').
     """
     
     path: Path = Field(..., description="Absolute path to the file")
@@ -112,10 +126,20 @@ class CodeFile(BaseModel):
 
 
 class ScanResult(BaseModel):
-    """Results from a directory scan.
-    
-    This Pydantic model aggregates all scanned files and provides
-    summary statistics for LLM context planning.
+    """Encapsulates the aggregated results from a project-wide code scan.
+
+    This model provides a holistic view of the scanned project directory,
+    containing a list of analyzed `CodeFile` objects along with summary
+    statistics and any errors encountered during the scan.
+
+    Attributes:
+        root_path (Path): The starting directory for the recursive scan.
+        files (List[CodeFile]): A collection of analyzed source files.
+        total_files (int): Total number of files successfully scanned.
+        total_lines (int): Sum of line counts across all scanned files.
+        total_tokens (int): Sum of estimated tokens for all scanned files.
+        ignored_paths (Set[str]): Paths that were intentionally skipped (e.g., via .gitignore).
+        errors (List[str]): Any warnings or error messages produced during scanning.
     """
     
     root_path: Path = Field(..., description="Root directory that was scanned")
@@ -373,24 +397,28 @@ class ScanResult(BaseModel):
 
 
 class CodeScanner:
-    """
-    Intelligent code scanner for extracting source code information.
-    
+    """An intelligent, multi-language code scanner and analysis engine.
+
+    The CodeScanner is responsible for recursively traversing project directories,
+    filtering out noise (using gitignore and custom patterns), and extracting
+    rich structural context from source files. It supports over 14 programming
+    languages and optimizes the extracted content for LLM consumption.
+
     Features:
-    - Recursive directory traversal
-    - Intelligent filtering (gitignore, custom patterns)
-    - Multi-language support (Python, JS, TS, Java)
-    - Function/class extraction
-    - Smart context optimization for LLMs
+    - Language-agnostic filtering and discovery.
+    - Deep structural analysis (classes, functions, imports).
+    - Context-level management (Full vs. Signature-only).
+    - Intelligent token estimation.
     """
     
     def __init__(self, ignore_patterns: Optional[List[str]] = None, include_config_files: bool = False):
-        """
-        Initialize the scanner.
-        
+        """Initialize the CodeScanner with custom filters and settings.
+
         Args:
-            ignore_patterns: Custom patterns to ignore (uses config defaults if None)
-            include_config_files: Whether to include configuration files in scan
+            ignore_patterns (Optional[List[str]]): A list of glob patterns to ignore.
+                If None, uses defaults from the global configuration.
+            include_config_files (bool): Whether to include configuration files like
+                package.json or pyproject.toml in the scan results. Defaults to False.
         """
         self.ignore_patterns = ignore_patterns or config.ignore_patterns
         self.supported_extensions = config.supported_extensions
@@ -401,15 +429,16 @@ class CodeScanner:
         self.CONTEXT_THRESHOLD = 500  # lines
     
     def _estimate_tokens(self, text: str) -> int:
-        """
-        Estimate the number of tokens in text.
-        Uses a simple heuristic: ~4 characters per token for code.
-        
+        """Estimate the number of LLM tokens in a given text.
+
+        Uses a simple but robust heuristic for code analysis: approximately 4 characters
+        per token. This is sufficient for context planning and identifying large files.
+
         Args:
-            text: The text to estimate
-            
+            text (str): The source code or text to estimate.
+
         Returns:
-            Estimated token count
+            int: The estimated total token count.
         """
         if not text:
             return 0
@@ -422,17 +451,20 @@ class CodeScanner:
         return estimated_tokens
     
     def scan_directory(self, path: str | Path) -> ScanResult:
-        """
-        Scan a directory and extract code information.
-        
+        """Recursively scan a directory to identify and analyze all source code files.
+
+        This is the primary entry point for project-wide analysis. It applies
+        filtering rules, detects file types, and extracts structured metadata
+        for every identified file.
+
         Args:
-            path: Path to the directory to scan
-            
+            path (Union[str, Path]): The absolute or relative path to the directory.
+
         Returns:
-            ScanResult containing all scanned files and metadata
-            
+            ScanResult: An object containing metadata and analysis for all discovered files.
+
         Raises:
-            ValueError: If path doesn't exist or isn't a directory
+            ValueError: If the provided path does not exist or is not a directory.
         """
         root_path = Path(path).resolve()
         
@@ -853,7 +885,7 @@ class CodeScanner:
                     if docstring:
                         # Just first line of docstring
                         first_line = docstring.split('\n')[0].strip()
-                        sig += f' """  {first_line}'
+                        sig += f'  # {first_line}'
                     
                     functions.append(sig)
                     
@@ -873,7 +905,7 @@ class CodeScanner:
                     docstring = ast.get_docstring(node)
                     if docstring:
                         first_line = docstring.split('\n')[0].strip()
-                        class_info += f' """ {first_line}'
+                        class_info += f'  # {first_line}'
                     
                     # Extract class methods
                     methods = []

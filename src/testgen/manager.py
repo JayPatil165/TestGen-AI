@@ -212,15 +212,20 @@ class WorkflowManager:
         source_files: Optional[List[str]] = None,
         language: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Execute Analyze → Generate workflow.
-        
+        """Execute the complete Analyze → Generate workflow.
+
+        This phase first identifies relevant source code files and then uses the
+        AI engine to generate corresponding test cases.
+
         Args:
-            source_files: List of source files to analyze (or None to scan all)
-            language: Programming language (or None to use default)
-            
+            source_files (Optional[List[str]]): Specific files or directories to scan.
+                If None, the entire project is scanned based on configuration.
+            language (Optional[str]): Programming language to focus on (e.g., "python").
+                If None, the language is detected automatically or defaults to Python.
+
         Returns:
-            Dictionary with generated test results
+            Dict[str, Any]: A dictionary containing a summary of the generation phase,
+                including success counts and paths of generated files.
         """
         self.state.phase = "ANALYZING"
         self.state.start_time = datetime.now()
@@ -333,15 +338,20 @@ class WorkflowManager:
         test_files: Optional[List[str]] = None,
         language: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Execute test execution workflow.
-        
+        """Execute the test execution and verification workflow.
+
+        Discovers and runs test files in the project's test directory, then
+        aggregates the results for reporting and analysis.
+
         Args:
-            test_files: List of test files to run (or None to run all)
-            language: Programming language (or None to use default)
-            
+            test_files (Optional[List[str]]): Specific test files to execute.
+                If None, runs all tests found in the output directory.
+            language (Optional[str]): Programming language for the test runner.
+                Defaults to the configured primary language if None.
+
         Returns:
-            Dictionary with test execution results
+            Dict[str, Any]: A detailed summary of test execution, including pass/fail
+                counts, individual test statuses, and total duration.
         """
         self.state.phase = "EXECUTING"
         self.state.start_time = datetime.now()
@@ -425,15 +435,19 @@ class WorkflowManager:
         results: Optional[Dict[str, Any]] = None,
         format: str = 'html'
     ) -> str:
-        """
-        Execute report generation workflow.
-        
+        """Execute the report generation phase.
+
+        Produces visual and structured reports (HTML, JSON, etc.) from the test
+        execution results for developer review.
+
         Args:
-            results: Test results (or None to use last execution)
-            format: Report format ('html', 'json', 'pdf', 'both')
-            
+            results (Optional[Dict[str, Any]]): Test results to process into the report.
+                If None, uses results from the most recent `execute_test` execution.
+            format (str): Desired output format. Options: 'html', 'json', 'pdf', 'both'.
+                Defaults to 'html'.
+
         Returns:
-            Path to generated report
+            str: The absolute file path to the primary generated report.
         """
         self.state.phase = "REPORTING"
         
@@ -496,16 +510,19 @@ class WorkflowManager:
         language: Optional[str] = None,
         report_format: str = 'both'
     ) -> Dict[str, Any]:
-        """
-        Execute complete workflow: Analyze → Generate → Execute → Report.
-        
+        """Execute the complete end-to-end autonomous workflow.
+
+        Coordinates All phases (Analyze → Generate → Execute → Report) sequentially
+        based on the provided parameters. This is the main engine for the CLI 'auto' command.
+
         Args:
-            source_files: List of source files (or None to scan all)
-            language: Programming language (or None to use default)
-            report_format: Report format ('html', 'json', 'both')
-            
+            source_files (Optional[List[str]]): Specific source files to process.
+            language (Optional[str]): Programming language for the entire workflow.
+            report_format (str): Output format(s) for the final report. Defaults to 'both'.
+
         Returns:
-            Dictionary with complete workflow results
+            Dict[str, Any]: A comprehensive object containing results and metadata
+                from all workflow phases.
         """
         start_time = datetime.now()
         
@@ -537,31 +554,36 @@ class WorkflowManager:
         }
     
     def get_state(self) -> Dict[str, Any]:
-        """Get current workflow state."""
-        state_dict = self.state.to_dict()
-        
-        # Try to load from cache if empty
-        if not state_dict.get('test_results'):
-            cached = self.load_test_cache(self.language)
-            if cached:
-                state_dict['test_results'] = cached
-        
-        return state_dict
+        """Get the current workflow state as a serialized dictionary.
+
+        This method retrieves the in-memory state and attempts to augment it
+        with cached test results if the current state is empty.
+
+        Returns:
+            Dict[str, Any]: A snapshot of the current workflow status, including
+                phase, results, errors, and timing information.
+        """
     
     def reset_state(self) -> None:
-        """Reset workflow state."""
+        """Reset the internal workflow state to its initial 'IDLE' values.
+
+        This clears all progress tracking, identified files, test results,
+        and errors, preparing the manager for a fresh workflow execution.
+        """
         self.state = WorkflowState()
     
     def _get_test_output_path(self, source_file: Path, language: str) -> Path:
-        """
-        Generate output path for test file.
-        
+        """Generate the destination file path for a generated test.
+
+        Calculates the appropriate path within the tests directory, maintaining
+        the project's directory structure where possible.
+
         Args:
-            source_file: Source file path
-            language: Programming language
-            
+            source_file (Path): Absolute path to the original source code file.
+            language (str): Programming language of the source file.
+
         Returns:
-            Path for generated test file
+            Path: The intended absolute path for the generated test file.
         """
         # Determine test file naming convention
         if language == 'python':
@@ -589,14 +611,13 @@ class WorkflowManager:
         return self.output_dir / test_name
     
     def _discover_test_files(self, language: str) -> List[str]:
-        """
-        Discover test files in output directory.
-        
+        """Automatically discover existing test files in the project's test directory.
+
         Args:
-            language: Programming language
-            
+            language (str): Programming language to filter by extension.
+
         Returns:
-            List of test file paths
+            List[str]: A list of absolute paths to discovered test files.
         """
         if not self.output_dir.exists():
             return []
@@ -635,12 +656,14 @@ class WorkflowManager:
         files: List[str],
         language: str
     ) -> None:
-        """
-        Cache scan results to file.
-        
+        """Cache identified source file paths to disk to speed up subsequent runs.
+
+        Stores the scan results in a JSON file within the project's cache directory.
+        The cache includes the language, file list, project path, and timestamp.
+
         Args:
-            files: List of scanned file paths
-            language: Programming language
+            files (List[str]): List of absolute paths to the identified source files.
+            language (str): Programming language of the scanned files.
         """
         cache_file = self.cache_dir / f"scan_{language}.json"
         cache_data = {
@@ -657,15 +680,19 @@ class WorkflowManager:
         language: str,
         max_age_seconds: int = 3600
     ) -> Optional[List[str]]:
-        """
-        Load cached scan results.
-        
+        """Load source file paths from the disk cache if it is still valid.
+
+        Checks for the existence of the cache file and verifies that it belongs
+        to the current project and hasn't expired based on `max_age_seconds`.
+
         Args:
-            language: Programming language
-            max_age_seconds: Maximum age of cache in seconds (default: 1 hour)
-            
+            language (str): Programming language to look up in the cache.
+            max_age_seconds (int): Maximum allowed age of the cache in seconds.
+                Defaults to 3600 (1 hour).
+
         Returns:
-            List of cached file paths, or None if cache invalid
+            Optional[List[str]]: A list of cached file paths if a valid cache
+                is found, otherwise None.
         """
         cache_file = self.cache_dir / f"scan_{language}.json"
         

@@ -1,0 +1,76 @@
+site_name: TestGen-AI
+site_description: Autonomous AI-Powered Quality Assurance Agent
+site_author: Jay Patil
+repo_url: https://github.com/JayPatil165/TestGen-AI
+repo_name: TestGen-AI
+
+docs_dir: docs_source
+site_dir: docs
+site_url: https://JayPatil165.github.io/TestGen-AI/
+use_directory_urls: false
+
+extra_css:
+  - stylesheets/extra.css
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Commands:
+    - Overview: commands/overview.md
+    - Auto: commands/auto.md
+    - Generate: commands/generate.md
+    - Test: commands/test.md
+    - Report: commands/report.md
+    - Config: commands/config.md
+  - Examples: examples.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/JayPatil165/TestGen-AI
+  copyright: Copyright &copy; 2026 Jay Patil | patiljay32144@gmail.com

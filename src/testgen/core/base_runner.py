@@ -12,15 +12,20 @@ from dataclasses import dataclass
 
 @dataclass
 class TestResult:
-    """Single test result (language-agnostic)."""
-    
-    name: str
-    status: str  # passed, failed, skipped, error
-    duration: float = 0.0
-    message: Optional[str] = None
-    traceback: Optional[str] = None
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
+    """A standardized container for a single test's execution metadata.
+
+    This model is language-agnostic and provides a unified format for
+    representing passes, failures, and errors across different frameworks.
+
+    Attributes:
+        name (str): The unique identifier or name of the test function/case.
+        status (str): The execution outcome (e.g., 'passed', 'failed', 'skipped', 'error').
+        duration (float): Time taken to execute the test in seconds. Defaults to 0.0.
+        message (Optional[str]): A descriptive failure or error message.
+        traceback (Optional[str]): The detailed stack trace for failures or errors.
+        file_path (Optional[str]): Path to the file containing this test.
+        line_number (Optional[int]): The specific line where the test is defined.
+    """
     
     @property
     def passed(self) -> bool:
@@ -30,19 +35,21 @@ class TestResult:
 
 @dataclass
 class TestResults:
-    """
-    Test execution results (language-agnostic).
-    
+    """Aggregated execution summary for a set of tests.
+
+    This model provides both high-level statistics (counts, duration, pass rate)
+     and granular details for individual test cases.
+
     Attributes:
-        tests: List of test results
-        total: Total number of tests
-        passed: Number of passed tests
-        failed: Number of failed tests
-        skipped: Number of skipped tests
-        errors: Number of errors
-        duration: Total execution time
-        language: Programming language
-        framework: Test framework used
+        tests (List[TestResult]): A collection of individual test outcomes.
+        total (int): The total number of tests attempted.
+        passed (int): Count of tests that successfully completed.
+        failed (int): Count of tests that failed their assertions.
+        skipped (int): Count of tests that were explicitly bypassed.
+        errors (int): Count of tests that encountered unexpected execution errors.
+        duration (float): The total wall-clock time for the test suite in seconds.
+        language (str): The programming language of the tested modules.
+        framework (str): The name of the testing framework used (e.g., 'pytest').
     """
     
     tests: List[TestResult] = None
@@ -82,19 +89,22 @@ class TestResults:
 
 
 class BaseTestRunner(ABC):
-    """
-    Abstract base class for test runners.
-    
-    All language-specific runners must inherit from this class.
-    Provides a common interface for running tests across different languages.
+    """Abstract foundational component for all language-specific test runners.
+
+    The BaseTestRunner defines the contract for discovering, counting, and
+    executing tests. It ensures a consistent interface across the system,
+    allowing the WorkflowManager to interact with any language runner
+    identically.
+
+    Inherit from this class to implement a new language runner.
     """
     
     def __init__(self, verbose: bool = False):
-        """
-        Initialize test runner.
-        
+        """Initialize the base runner with common execution state.
+
         Args:
-            verbose: Print verbose output
+            verbose (bool): If True, enables detailed console output
+                during the testing lifecycle.
         """
         self.verbose = verbose
     
@@ -105,16 +115,15 @@ class BaseTestRunner(ABC):
         pattern: Optional[str] = None,
         **kwargs
     ) -> TestResults:
-        """
-        Run tests in directory.
-        
+        """Execute the tests within the specified directory.
+
         Args:
-            test_dir: Directory containing tests
-            pattern: File/test pattern to match (optional)
-            **kwargs: Additional runner-specific arguments
-            
+            test_dir (str): Path to the directory containing test files.
+            pattern (Optional[str]): A glob pattern to filter test files.
+            **kwargs: Implementation-specific flags (e.g., json_report).
+
         Returns:
-            TestResults with execution results
+            TestResults: Aggregated outcome of the test run.
         """
         pass
     
@@ -124,15 +133,14 @@ class BaseTestRunner(ABC):
         test_dir: str,
         pattern: Optional[str] = None
     ) -> List[Path]:
-        """
-        Discover test files matching pattern.
-        
+        """Locate all relevant test files within a directory.
+
         Args:
-            test_dir: Directory to search
-            pattern: File pattern to match
-            
+            test_dir (str): Base directory for discovery.
+            pattern (Optional[str]): Filtering pattern for filenames.
+
         Returns:
-            List of test file paths
+            List[Path]: A list of absolute paths to the identified test files.
         """
         pass
     
@@ -142,15 +150,14 @@ class BaseTestRunner(ABC):
         test_dir: str,
         pattern: Optional[str] = None
     ) -> int:
-        """
-        Count total tests before execution.
-        
+        """Estimate the total number of test cases without full execution.
+
         Args:
-            test_dir: Directory containing tests
-            pattern: File pattern to match
-            
+            test_dir (str): Directory to scan.
+            pattern (Optional[str]): Filtering pattern.
+
         Returns:
-            Total number of tests found
+            int: The total count of test functions/checks detected.
         """
         pass
     
@@ -161,47 +168,43 @@ class BaseTestRunner(ABC):
         pattern: Optional[str] = None,
         **kwargs
     ) -> List[str]:
-        """
-        Build test execution command.
-        
+        """Generate the shell command for executing the test suite.
+
         Args:
-            test_dir: Test directory
-            pattern: Test pattern
-            **kwargs: Additional arguments
-            
+            test_dir (str): Target directory.
+            pattern (Optional[str]): Active filter pattern.
+            **kwargs: Extra arguments for the CLI tool.
+
         Returns:
-            Command as list of strings
+            List[str]: The complete command as a sequence of strings.
         """
         pass
     
     @abstractmethod
     def validate_test_file(self, test_file: str) -> bool:
-        """
-        Validate test file syntax and structure.
-        
+        """Perform static validation on a generated test file.
+
         Args:
-            test_file: Path to test file
-            
+            test_file (str): Path to the file to check.
+
         Returns:
-            True if valid
+            bool: True if the file meets the language's syntactic requirements.
         """
         pass
     
     def get_language(self) -> str:
-        """
-        Get language name.
-        
+        """Return the lowercase name of the supported language.
+
         Returns:
-            Language name (e.g., 'python', 'javascript')
+            str: Identifier like 'python', 'javascript', etc.
         """
         return "unknown"
     
     def get_framework(self) -> str:
-        """
-        Get test framework name.
-        
+        """Return the name of the testing framework being utilized.
+
         Returns:
-            Framework name (e.g., 'pytest', 'jest')
+            str: Framework name like 'pytest' or 'jest'.
         """
         return "unknown"
     
@@ -215,20 +218,18 @@ class BaseTestRunner(ABC):
         return []
     
     def supports_coverage(self) -> bool:
-        """
-        Check if runner supports coverage reporting.
-        
+        """Indicate if the runner can provide code coverage metrics.
+
         Returns:
-            True if coverage is supported
+            bool: True if coverage data is available.
         """
         return False
     
     def supports_parallel(self) -> bool:
-        """
-        Check if runner supports parallel execution.
-        
+        """Indicate if the runner supports concurrent test execution.
+
         Returns:
-            True if parallel execution is supported
+            bool: True if parallel mode can be enabled.
         """
         return False
     
@@ -237,15 +238,15 @@ class BaseTestRunner(ABC):
         test_dir: str,
         pattern: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Get detailed test information.
-        
+        """Aggregate high-level diagnostic information about the test environment.
+
         Args:
-            test_dir: Test directory
-            pattern: File pattern
-            
+            test_dir (str): The directory being analyzed.
+            pattern (Optional[str]): Active filtering pattern.
+
         Returns:
-            Dictionary with test info
+            Dict[str, Any]: A consolidated dictionary of runner capabilities
+                and discovery results.
         """
         test_files = self.discover_tests(test_dir, pattern)
         test_count = self.count_tests(test_dir, pattern)

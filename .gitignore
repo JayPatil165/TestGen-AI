@@ -48,3 +48,11 @@ temp/
 dist/
 build/
 *.egg-info/
+
+# TestGen AI runtime cache (generated at runtime, not source)
+.testgen/
+.testgen-cache/
+
+# Generated output inside example/sample directories
+examples/**/TestGen-AI/
+samples/**/TestGen-AI/

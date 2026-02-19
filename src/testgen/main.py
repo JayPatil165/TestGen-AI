@@ -37,7 +37,14 @@ state = GlobalState()
 
 
 def version_callback(value: bool):
-    """Callback for version flag."""
+    """Callback hook to display the application version information.
+
+    Args:
+        value (bool): If True, prints the version and exits.
+
+    Raises:
+        typer.Exit: Terminates the CLI after displaying version info.
+    """
     if value:
         console.print(Panel.fit(
             f"[bold cyan]TestGen AI[/bold cyan]\n"
@@ -70,16 +77,19 @@ def main(
         help="Show version information and exit"
     ),
 ):
-    """
-    TestGen AI - AI-Powered Test Generation & Execution
-    
+    """🚀 TestGen AI - The Autonomous, AI-Powered QA Agent from Your CLI.
+
+    TestGen AI automates the entire testing lifecycle: scanning your source
+    code, generating robust unit tests using state-of-the-art LLMs, executing
+    them across 14+ languages, and producing beautiful analytics reports.
+
     🎯 Quick Start:
-        testgen generate ./src      # Generate tests
-        testgen test                # Run tests
-        testgen report              # Create report
-        testgen auto ./src          # Do everything
-    
-    📚 Documentation: https://github.com/JayPatil165/TestGen-AI
+    - [bold green]testgen generate ./src[/bold green] : Generate tests
+    - [bold blue]testgen test[/bold blue]            : Execute tests
+    - [bold yellow]testgen report[/bold yellow]          : Create interactive report
+    - [bold magenta]testgen auto ./src[/bold magenta]      : Full autonomous workflow
+
+    📚 Documentation: [link=https://github.com/JayPatil165/TestGen-AI]https://github.com/JayPatil165/TestGen-AI[/link]
     """
     # Store global options
     state.verbose = verbose
@@ -204,7 +214,7 @@ def generate(
                 WATCHDOG_AVAILABLE = False
 
             if not WATCHDOG_AVAILABLE:
-                console.print("[red]❌ Watch mode requires 'watchdog'. Install it with: pip install watchdog[/red]")
+                console.print("[red]❌ Watch mode dependency unavailable. Try: pip install --upgrade testgen-ai[/red]")
                 raise typer.Exit(1)
 
             import threading
@@ -450,7 +460,11 @@ def report(
     ),
 ):
     """
-    Generate a test report from cached results.
+    Generate professional test reports from cached results.
+
+    Transforms raw JSON test execution data into beautiful, interactive HTML
+    reports for developer review. Reports include success charts, timing
+    analysis, and detailed test tables.
     
     Creates beautiful HTML reports with test results, coverage, and charts.
     Reports are saved inside the project directory for easy access.
@@ -573,18 +587,22 @@ def auto(
     ),
 ):
     """
-    Run the complete workflow: Generate → Test → Report (God Mode).
-    
-    This is the one-click solution that does everything:
-    1. Analyzes your code
-    2. Generates tests with AI
-    3. Runs all tests
-    4. Creates a beautiful HTML report
-    
-    Examples:
-        testgen auto ./src
-        testgen auto ./src --output ./my-tests
-        testgen auto ./src --skip-report
+    Run the complete autonomous workflow: Analyze → Generate → Test → Report.
+
+    The 'God Mode' command provides a true one-click solution for AI-powered
+    quality assurance. It automates the entire lifecycle from code analysis
+    to visual reporting.
+
+    [bold]Steps Performed:[/bold]
+    1. [bold blue]Analyze:[/bold blue] Scans code for eligible source files.
+    2. [bold blue]Generate:[/bold blue] Creates comprehensive tests with AI.
+    3. [bold blue]Execute:[/bold blue] Runs the newly created tests.
+    4. [bold blue]Report:[/bold blue] Produces a visual analysis of the results.
+
+    [bold]Examples:[/bold]
+    - testgen auto ./src
+    - testgen auto ./src --output ./my-tests
+    - testgen auto ./src --skip-report
     """
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
     
@@ -653,9 +671,113 @@ def auto(
         raise typer.Exit(1)
 
 
-# CLI entry point
+# ── Config subcommand group ──────────────────────────────────────────────────
+
+config_app = typer.Typer(
+    help="Manage global TestGen AI configuration (API keys, model, provider).",
+    no_args_is_help=True,
+)
+app.add_typer(config_app, name="config")
+
+
+def _write_global_env(key: str, value: str) -> None:
+    """Write or update a single KEY=VALUE entry in ~/.testgen/.env."""
+    from testgen.config import GLOBAL_CONFIG_DIR, GLOBAL_ENV_FILE
+
+    GLOBAL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Read existing lines (if the file already exists)
+    existing: dict[str, str] = {}
+    if GLOBAL_ENV_FILE.exists():
+        for line in GLOBAL_ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                existing[k.strip().upper()] = v.strip()
+
+    existing[key.upper()] = value
+
+    lines = [f"{k}={v}" for k, v in existing.items()]
+    GLOBAL_ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@config_app.command("set")
+def config_set(
+    key: str = typer.Argument(..., help="Config key, e.g. GEMINI_API_KEY or LLM_PROVIDER"),
+    value: str = typer.Argument(..., help="Value to store"),
+):
+    """
+    Save a configuration value globally (works from any directory).
+
+    Writes to [bold]~/.testgen/.env[/bold] so the setting persists across all projects.
+    A local [bold].env[/bold] file in your project directory always overrides the global value.
+
+    [bold]Common keys:[/bold]
+    - GEMINI_API_KEY      — Google Gemini API key
+    - OPENAI_API_KEY      — OpenAI API key
+    - ANTHROPIC_API_KEY   — Anthropic / Claude API key
+    - LLM_PROVIDER        — openai | anthropic | gemini | ollama
+    - LLM_MODEL           — model name, e.g. gpt-4o or gemini-2.0-flash
+
+    [bold]Examples:[/bold]
+        testgen config set GEMINI_API_KEY AIza...
+        testgen config set LLM_PROVIDER openai
+        testgen config set LLM_MODEL gpt-4o
+    """
+    from testgen.config import GLOBAL_ENV_FILE
+
+    _write_global_env(key, value)
+
+    # Mask the value in output so secrets aren't shown in full
+    display = value if len(value) <= 6 else value[:4] + "****" + value[-2:]
+    console.print(
+        f"[green]✅ Saved[/green] [bold]{key.upper()}[/bold] = [dim]{display}[/dim]\n"
+        f"[dim]Stored in: {GLOBAL_ENV_FILE}[/dim]"
+    )
+
+
+@config_app.command("show")
+def config_show():
+    """
+    Display the current active configuration.
+
+    Shows which API keys are set (masked), the active provider and model,
+    and where each value is coming from.
+    """
+    from testgen.config import GLOBAL_ENV_FILE, Config
+
+    # Re-instantiate to pick up any recent writes
+    active = Config()
+
+    def mask(v: Optional[str]) -> str:
+        if not v:
+            return "[dim]not set[/dim]"
+        if len(v) <= 8:
+            return "[yellow]****[/yellow]"
+        return f"[yellow]{v[:4]}****{v[-2:]}[/yellow]"
+
+    console.print(Panel.fit(
+        f"[bold]Provider:[/bold]    [cyan]{active.llm_provider.value}[/cyan]\n"
+        f"[bold]Model:[/bold]       [cyan]{active.llm_model}[/cyan]\n\n"
+        f"[bold]GEMINI_API_KEY:[/bold]    {mask(active.gemini_api_key)}\n"
+        f"[bold]OPENAI_API_KEY:[/bold]    {mask(active.openai_api_key)}\n"
+        f"[bold]ANTHROPIC_API_KEY:[/bold] {mask(active.anthropic_api_key)}\n\n"
+        f"[dim]Global config: {GLOBAL_ENV_FILE}[/dim]\n"
+        f"[dim]Local override: .env  (in current directory)[/dim]",
+        title="⚙️  TestGen AI — Active Configuration",
+        border_style="cyan"
+    ))
+
+
+# ── CLI entry point ───────────────────────────────────────────────────────────
+
+
 def cli():
-    """Main entry point for the CLI."""
+    """Universal entry point for the TestGen AI command-line interface.
+
+    This function handles high-level exception management (e.g., KeyboardInterrupt)
+    and routes the execution to the Typer application.
+    """
     try:
         app()
     except KeyboardInterrupt:

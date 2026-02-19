@@ -27,29 +27,43 @@ from .language_config import Language
 
 
 class FileChangeType(str, Enum):
-    """Type of file change event."""
-    CREATED = "created"
-    MODIFIED = "modified"
-    DELETED = "deleted"
-    MOVED = "moved"
+    """Enumeration of supported file system change event types.
+
+    Members:
+        CREATED: A new file was created.
+        MODIFIED: An existing file was updated.
+        DELETED: A file was removed.
+        MOVED: A file was renamed or relocated.
+    """
 
 
 @dataclass
 class FileChangeEvent:
-    """Represents a file change event."""
-    path: Path
-    change_type: FileChangeType
-    language: Language
-    timestamp: datetime
-    is_test_file: bool = False
+    """Encapsulates detailed metadata for a single file system change.
+
+    Attributes:
+        path (Path): The absolute path to the file that changed.
+        change_type (FileChangeType): The nature of the change (created, modified, etc.).
+        language (Language): The programming language detected for the file.
+        timestamp (datetime): The precise time the event was detected.
+        is_test_file (bool): Whether the file is classified as a test file based
+            on naming conventions. Defaults to False.
+    """
 
 
 class UniversalFileWatcher:
-    """
-    Universal file watcher supporting ALL 14 programming languages.
-    
-    Monitors file changes and triggers callbacks with proper filtering
-    and debouncing to avoid rapid repeated events.
+    """A high-performance, cross-platform file monitoring engine.
+
+    The UniversalFileWatcher observes file system events across multiple paths,
+    filtering for source code changes in over 14 programming languages. It
+    features intelligent debouncing to prevent "event storms" during rapid
+    saves and provides a unified callback interface for reacting to changes.
+
+    Key Features:
+    - Multi-directory monitoring.
+    - Automatic language detection and test file identification.
+    - Configurable debouncing and path ignoring.
+    - Thread-safe callback system.
     """
     
     # File extensions to watch for each language
@@ -95,14 +109,21 @@ class UniversalFileWatcher:
         debounce_seconds: float = 1.0,
         ignore_patterns: Optional[List[str]] = None
     ):
-        """
-        Initialize universal file watcher.
-        
+        """Initialize the universal file watcher with monitoring rules.
+
+        The watcher requires the `watchdog` library for native file system events.
+
         Args:
-            watch_paths: List of paths to monitor
-            languages: Languages to watch (default: all 14)
-            debounce_seconds: Seconds to wait before processing repeated events
-            ignore_patterns: Patterns to ignore (e.g., ['*.pyc', '__pycache__'])
+            watch_paths (List[str]): Directories or specific files to monitor.
+            languages (Optional[List[Language]]): Restrict monitoring to specific
+                languages. If None, watches all supported source types.
+            debounce_seconds (float): Time window in seconds to ignore duplicate
+                events for the same file. Defaults to 1.0.
+            ignore_patterns (Optional[List[str]]): Glob patterns of files to exclude
+                (e.g., build artifacts, temporary files).
+
+        Raises:
+            ImportError: If the required `watchdog` library is not installed.
         """
         if not WATCHDOG_AVAILABLE:
             raise ImportError(
@@ -127,14 +148,14 @@ class UniversalFileWatcher:
         self._running = False
     
     def detect_language(self, file_path: Path) -> Optional[Language]:
-        """
-        Detect language from file extension.
-        
+        """Determine the programming language of a file based on its extension.
+
         Args:
-            file_path: Path to file
-            
+            file_path (Path): The path to the file.
+
         Returns:
-            Detected language or None
+            Optional[Language]: The detected language enum, or None if the
+                extension is not recognized.
         """
         ext = file_path.suffix.lower()
         
@@ -145,15 +166,16 @@ class UniversalFileWatcher:
         return None
     
     def is_test_file(self, file_path: Path, language: Language) -> bool:
-        """
-        Check if file is a test file based on naming conventions.
-        
+        """Heuristically identify if a file is a test file for a given language.
+
+        Uses common naming conventions (e.g., 'test_*.py', '*.spec.js').
+
         Args:
-            file_path: Path to file
-            language: Programming language
-            
+            file_path (Path): Path to the file.
+            language (Language): The programming language context.
+
         Returns:
-            True if test file
+            bool: True if the file matches a test pattern for the language.
         """
         patterns = self.TEST_PATTERNS.get(language, [])
         file_name = file_path.name
@@ -171,14 +193,15 @@ class UniversalFileWatcher:
         return 'test' in str(file_path).lower()
     
     def should_ignore(self, file_path: Path) -> bool:
-        """
-        Check if file should be ignored based on patterns.
-        
+        """Check if a file should be excluded from monitoring.
+
+        Applies the `ignore_patterns` configured during initialization.
+
         Args:
-            file_path: Path to check
-            
+            file_path (Path): Path to check.
+
         Returns:
-            True if should be ignored
+            bool: True if the file matches any ignore pattern.
         """
         path_str = str(file_path)
         
@@ -194,14 +217,14 @@ class UniversalFileWatcher:
         return False
     
     def should_debounce(self, file_path: str) -> bool:
-        """
-        Check if event should be debounced (too soon after last event).
-        
+        """Determine if a file event should be suppressed to avoid rapid repetitions.
+
         Args:
-            file_path: Path that changed
-            
+            file_path (str): The string path of the changed file.
+
         Returns:
-            True if should debounce
+            bool: True if an event for this file was processed recently (within
+                `debounce_seconds`).
         """
         now = datetime.now()
         
@@ -214,16 +237,21 @@ class UniversalFileWatcher:
         return False
     
     def on_change(self, callback: Callable[[FileChangeEvent], None]) -> None:
-        """
-        Register callback for file changes.
-        
+        """Register a new subscriber for file system events.
+
         Args:
-            callback: Function to call when files change
+            callback (Callable[[FileChangeEvent], None]): A function to be
+                invoked whenever a non-ignored file change is detected.
         """
         self.callbacks.append(callback)
     
-    def _create_event_handler(self):
-        """Create event handler for watchdog."""
+    def _create_event_handler(self) -> FileSystemEventHandler:
+        """Construct the native Watchdog event handler with integrated filtering.
+
+        Returns:
+            FileSystemEventHandler: A configured handler that performs language
+                detection, debouncing, and callback dispatching.
+        """
         watcher = self
         
         class UniversalEventHandler(FileSystemEventHandler):
@@ -281,7 +309,10 @@ class UniversalFileWatcher:
         return UniversalEventHandler()
     
     def start(self) -> None:
-        """Start watching for file changes."""
+        """Activate the file monitoring system.
+
+        Starts the background observer threads for all configured watch paths.
+        """
         if self._running:
             return
         
@@ -305,7 +336,10 @@ class UniversalFileWatcher:
         print(f"Watching {len(self.watch_paths)} path(s) for changes...")
     
     def stop(self) -> None:
-        """Stop watching for file changes."""
+        """Deactivate the file monitoring system and clean up threads.
+
+        Safely shuts down all active observers.
+        """
         if not self._running:
             return
         
@@ -318,18 +352,31 @@ class UniversalFileWatcher:
         print("File watching stopped.")
     
     def is_running(self) -> bool:
-        """Check if watcher is currently running."""
+        """Check the current operational state of the watcher.
+
+        Returns:
+            bool: True if the monitoring threads are active.
+        """
         return self._running
     
     def get_watched_extensions(self) -> Set[str]:
-        """Get all file extensions being watched."""
+        """List all file extensions currently being monitored.
+
+        Returns:
+            Set[str]: A unique set of file extension strings (including dots).
+        """
         extensions = set()
         for lang in self.languages:
             extensions.update(self.LANGUAGE_EXTENSIONS.get(lang, []))
         return extensions
     
-    def get_statistics(self) -> Dict[str, any]:
-        """Get watcher statistics."""
+    def get_statistics(self) -> Dict[str, Any]:
+        """Retrieve operational metrics for the active monitoring session.
+
+        Returns:
+            Dict[str, Any]: A summary of the session, including duration,
+                watched paths, and count of tracked extensions.
+        """
         return {
             "running": self._running,
             "watch_paths": [str(p) for p in self.watch_paths],
@@ -347,16 +394,16 @@ def create_watcher(
     languages: Optional[List[Language]] = None,
     on_change: Optional[Callable[[FileChangeEvent], None]] = None
 ) -> UniversalFileWatcher:
-    """
-    Create and configure a file watcher.
-    
+    """Convenience function to instantiate and configure a file watcher.
+
     Args:
-        paths: Paths to watch
-        languages: Languages to watch (default: all 14)
-        on_change: Optional callback for changes
-        
+        paths (List[str]): Paths to monitor.
+        languages (Optional[List[Language]]): Filter for specific languages.
+            If None, monitors all supported languages.
+        on_change (Optional[Callable]): Initial change callback to register.
+
     Returns:
-        Configured watcher
+        UniversalFileWatcher: A configured (but not yet started) watcher instance.
     """
     watcher = UniversalFileWatcher(paths, languages)
     

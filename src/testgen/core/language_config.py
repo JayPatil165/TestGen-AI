@@ -10,7 +10,11 @@ from enum import Enum
 
 
 class Language(Enum):
-    """Supported languages."""
+    """The set of programming and markup languages supported by TestGen AI.
+
+    Each member corresponds to a specific environment where scanning, 
+    generation, and verification can be performed.
+    """
     PYTHON = "python"
     JAVASCRIPT = "javascript"
     TYPESCRIPT = "typescript"
@@ -33,31 +37,31 @@ class Language(Enum):
 
 @dataclass
 class LanguageConfig:
-    """Configuration for a specific programming language."""
-    
-    name: str
-    language: Language
-    file_extensions: List[str]
-    test_file_patterns: List[str]
-    test_frameworks: List[str]
-    default_framework: str
-    comment_style: str  # "//", "#", "/**/", etc.
-    import_keyword: str  # "import", "require", "using", etc.
-    test_directory: str
-    assertion_style: str
-    
-    # Code patterns
-    function_pattern: str  # How functions are defined
-    class_pattern: str
-    test_function_prefix: str
-    test_class_prefix: str
-    
-    # File naming
-    test_file_prefix: str  # "test_", "", etc.
-    test_file_suffix: str  # ".test", "_test", "Test", etc.
-    
-    # Tree-sitter
-    tree_sitter_language: str  # Tree-sitter language name
+    """A comprehensive metadata container for language-specific rules.
+
+    This class defines how TestGen AI interacts with a specific language,
+    including file identification, test discovery patterns, framework
+    defaults, and syntactic markers for code extraction.
+
+    Attributes:
+        name (str): The display name of the language (e.g., "Python").
+        language (Language): The corresponding enum member.
+        file_extensions (List[str]): Extensions used to identify source files.
+        test_file_patterns (List[str]): Glob patterns for automated test discovery.
+        test_frameworks (List[str]): Supported testing tools (e.g., ["pytest", "mocha"]).
+        default_framework (str): The preferred runner if not explicitly specified.
+        comment_style (str): The syntax for single-line comments.
+        import_keyword (str): The primary keyword for module inclusion.
+        test_directory (str): The standard location for test files (e.g., "tests").
+        assertion_style (str): The primary syntax for assertions.
+        function_pattern (str): The keyword or regex used to define functions.
+        class_pattern (str): The keyword or regex used to define classes.
+        test_function_prefix (str): Standard prefix for test functions.
+        test_class_prefix (str): Standard prefix for test suites/classes.
+        test_file_prefix (str): Filename prefix for tests.
+        test_file_suffix (str): Filename suffix for tests.
+        tree_sitter_language (str): The name of the tree-sitter grammar to use.
+    """
 
 
 # Language configurations
@@ -346,32 +350,35 @@ LANGUAGE_CONFIGS = {
 
 
 def get_language_config(language: Language) -> LanguageConfig:
-    """
-    Get configuration for a language.
-    
+    """Retrieve the full configuration object for a specific language.
+
     Args:
-        language: Language enum
-        
+        language (Language): The language to look up.
+
     Returns:
-        LanguageConfig for the language
+        LanguageConfig: The ruleset for that language. Defaults to Python
+            if the language is not found.
     """
     return LANGUAGE_CONFIGS.get(language, LANGUAGE_CONFIGS[Language.PYTHON])
 
 
 def get_supported_languages() -> List[str]:
-    """Get list of all supported languages."""
+    """Provide a list of all languages currently configured in the system.
+
+    Returns:
+        List[str]: All supported language values.
+    """
     return [lang.value for lang in LANGUAGE_CONFIGS.keys() if lang != Language.UNKNOWN]
 
 
 def get_language_by_extension(ext: str) -> Language:
-    """
-    Get language from file extension.
-    
+    """Identify the language associated with a particular file extension.
+
     Args:
-        ext: File extension (with or without dot)
-        
+        ext (str): The extension to check (e.g., ".py" or "js").
+
     Returns:
-        Language enum
+        Language: The detected language enum, or `Language.UNKNOWN`.
     """
     if not ext.startswith('.'):
         ext = f'.{ext}'
