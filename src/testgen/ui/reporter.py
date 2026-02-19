@@ -133,22 +133,30 @@ class ReportGenerator:
             HTML string
         """
         # Determine status color and badge class
-        if results.failed > 0:
-            status_color = "#dc3545"  # Red
-            status_text = "FAILED"
-            badge_class = "failed"
-        elif results.skipped > 0:
-            status_color = "#ffc107"  # Yellow
-            status_text = "PARTIAL"
-            badge_class = "partial"
-        elif results.passed == results.total and results.total > 0:
-            status_color = "#28a745"  # Green
-            status_text = "PASSED"
-            badge_class = "passed"
-        else:
-            status_color = "#6c757d"  # Gray
+        if results.total == 0:
+            status_color = "#6c757d"
             status_text = "NO TESTS"
             badge_class = "no-tests"
+        elif results.failed > 0 and results.passed == 0:
+            status_color = "#dc3545"
+            status_text = "ALL FAILED"
+            badge_class = "failed"
+        elif results.failed > 0:
+            status_color = "#fd7e14"
+            status_text = "PARTIAL PASS"
+            badge_class = "partial"
+        elif results.errors > 0 and results.passed == 0:
+            status_color = "#dc3545"
+            status_text = "ERRORS"
+            badge_class = "failed"
+        elif results.passed == results.total and results.total > 0:
+            status_color = "#28a745"
+            status_text = "ALL PASSED"
+            badge_class = "passed"
+        else:
+            status_color = "#ffc107"
+            status_text = "PARTIAL"
+            badge_class = "partial"
         
         # Format language badge
         language_badge = ""

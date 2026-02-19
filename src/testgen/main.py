@@ -60,9 +60,82 @@ def _start_update_check() -> None:
     """Spawn a daemon thread so the check never delays the command."""
     t = threading.Thread(target=_check_for_update, daemon=True)
     t.start()
-    # Give the thread up to 3 s to finish before the process exits.
-    # Commands that run longer will already see the notice naturally.
     t.join(timeout=3)
+
+
+# ── API-key helpers ──────────────────────────────────────────────────────────
+
+def _mask(key: str) -> str:
+    """Return a masked version of an API key: first 4 + **** + last 2 chars."""
+    if len(key) <= 8:
+        return "****"
+    return f"{key[:4]}****{key[-2:]}"
+
+
+def _available_providers() -> list[tuple[str, str]]:
+    """Return list of (provider_name, masked_key) for every configured key."""
+    from testgen.config import LLMProvider
+    providers = []
+    if config.gemini_api_key:
+        providers.append((LLMProvider.GEMINI.value, _mask(config.gemini_api_key)))
+    if config.openai_api_key:
+        providers.append((LLMProvider.OPENAI.value, _mask(config.openai_api_key)))
+    if config.anthropic_api_key:
+        providers.append((LLMProvider.ANTHROPIC.value, _mask(config.anthropic_api_key)))
+    if config.llm_provider.value == 'ollama':
+        providers.append(('ollama', '(no key needed)'))
+    return providers
+
+
+def _active_key_line() -> str:
+    """One-line summary of the active provider + masked key."""
+    from testgen.config import LLMProvider
+    p = config.llm_provider.value
+    key_map = {
+        'gemini':    config.gemini_api_key,
+        'openai':    config.openai_api_key,
+        'anthropic': config.anthropic_api_key,
+    }
+    key = key_map.get(p)
+    if key:
+        return f"🔑 [bold]{p.upper()}[/bold] key: [yellow]{_mask(key)}[/yellow]  model: [cyan]{config.llm_model}[/cyan]"
+    elif p == 'ollama':
+        return f"🔑 [bold]OLLAMA[/bold] (local, no key needed)  model: [cyan]{config.llm_model}[/cyan]"
+    else:
+        return f"[red]⚠️  No API key set for {p.upper()} — run: testgen config set {p.upper()}_API_KEY <key>[/red]"
+
+
+def _prompt_provider_if_multiple() -> None:
+    """
+    If multiple provider keys are configured, prompt the user to pick one.
+    Updates `config.llm_provider` (and `config.llm_model` if it conflicts) in-place.
+    Does nothing when only one key or none is present.
+    """
+    from rich.prompt import Prompt
+    from testgen.config import LLMProvider
+
+    available = _available_providers()
+    if len(available) <= 1:
+        return  # Nothing to choose from
+
+    console.print("\n[bold cyan]Multiple API keys detected.[/bold cyan] Which provider should be used?\n")
+    for i, (pname, masked) in enumerate(available, 1):
+        active = " [green](current)[/green]" if pname == config.llm_provider.value else ""
+        console.print(f"  [cyan]{i}.[/cyan] [bold]{pname.upper()}[/bold]  [dim]{masked}[/dim]{active}")
+    console.print()
+
+    default_idx = next(
+        (str(i) for i, (p, _) in enumerate(available, 1) if p == config.llm_provider.value),
+        "1"
+    )
+    choice_str = Prompt.ask(
+        "  Enter number",
+        choices=[str(i) for i in range(1, len(available) + 1)],
+        default=default_idx,
+    )
+    chosen_provider = available[int(choice_str) - 1][0]
+    config.llm_provider = LLMProvider(chosen_provider)
+    console.print(f"  [green]✓ Using {chosen_provider.upper()}[/green]\n")
 
 
 def version_callback(value: bool):
@@ -187,6 +260,9 @@ def generate(
         # Set output directory
         output_dir = output or Path(config.test_output_dir)
         
+        # If multiple API keys configured, let user choose
+        _prompt_provider_if_multiple()
+
         # Validate target directory
         if not target_directory.exists():
             console.print(f"[red]❌ Error: Directory '{target_directory}' does not exist[/red]")
@@ -200,7 +276,8 @@ def generate(
             f"[bold cyan]Test Generation Started[/bold cyan]\n\n"
             f"📁 Source: [green]{target_directory}[/green]\n"
             f"📝 Output: [green]{output_dir}[/green]\n"
-            f"👀 Watch Mode: [yellow]{'Enabled' if watch else 'Disabled'}[/yellow]",
+            f"👀 Watch Mode: [yellow]{'Enabled' if watch else 'Disabled'}[/yellow]\n"
+            f"{_active_key_line()}",
             title="🚀 TestGen AI",
             border_style="cyan"
         ))
@@ -346,6 +423,14 @@ def test(
         dir_okay=True,
         resolve_path=True,
     ),
+    test_dir_arg: Optional[Path] = typer.Argument(
+        None,
+        help="Specific test directory to run (skips auto-discovery)",
+        exists=False,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
     test_directory: Optional[Path] = typer.Option(
         None,
         "--tests",
@@ -383,9 +468,11 @@ def test(
     try:
         resolved_project_dir = project_dir or Path.cwd()
         
-        # Auto-discover test directory if not explicitly provided
+        # Priority: explicit --tests > second positional arg > auto-discovery
         if test_directory:
             test_dir = test_directory
+        elif test_dir_arg:
+            test_dir = test_dir_arg
         else:
             # Look inside <project>/TestGen-AI/tests/ and pick the most recent run
             tests_base = resolved_project_dir / "TestGen-AI" / "tests"
@@ -487,6 +574,14 @@ def report(
         dir_okay=True,
         resolve_path=True,
     ),
+    test_dir: Optional[Path] = typer.Argument(
+        None,
+        help="Specific test directory whose results to report on (uses that run's cache)",
+        exists=False,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
     output_path: Optional[Path] = typer.Option(
         None,
         "--output",
@@ -524,7 +619,18 @@ def report(
     try:
         # Resolve project directory (default: CWD)
         resolved_project_dir = project_dir or Path.cwd()
-        
+
+        # If a specific test_dir was supplied, infer project root from it
+        # (e.g. ./sample_python_app/TestGen-AI/tests/2025-01-01/ → project = sample_python_app)
+        if test_dir and test_dir.exists():
+            # Walk up: <run>/ → tests/ → TestGen-AI/ → <project>/
+            try:
+                inferred = test_dir.parent.parent.parent
+                if inferred.is_dir():
+                    resolved_project_dir = inferred
+            except Exception:
+                pass
+
         # Determine output path: <project>/TestGen-AI/reports/ with timestamped name
         if not output_path:
             timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -660,17 +766,20 @@ def auto(
     try:
         output_dir = output or Path(config.test_output_dir)
         
+        # If multiple API keys configured, let user choose
+        _prompt_provider_if_multiple()
+
         # Display start message
         console.print("\n")
         console.print(Panel.fit(
-            f"[bold cyan]🚀 TestGen AI - God Mode Activated[/bold cyan]\n\n"
-            f"[bold]Complete Workflow:[/bold]\n"
-            f"1️⃣  Analyze code\n"
-            f"2️⃣  Generate tests with AI\n"
-            f"3️⃣  Run test suite\n"
-            f"4️⃣  {'Create report' if not skip_report else '[dim]Skip report[/dim]'}\n\n"
+            f"[bold cyan]TestGen AI — God Mode[/bold cyan]\n\n"
+            f"[bold]Workflow steps:[/bold]\n"
+            f"  [cyan]1.[/cyan] Analyze & scan source files\n"
+            f"  [cyan]2.[/cyan] Generate tests with AI\n"
+            f"  [cyan]3.[/cyan] Run the test suite\n"
+            f"  [cyan]4.[/cyan] {'Create HTML + JSON report' if not skip_report else '[dim]Report skipped[/dim]'}\n\n"
             f"📁 Source: [green]{target_directory}[/green]\n"
-            f"📝 Tests: [green]{output_dir}[/green]",
+            f"{_active_key_line()}",
             title="🎯 Auto Mode",
             border_style="cyan"
         ))
@@ -701,14 +810,17 @@ def auto(
         
         # Final Summary
         state_info = manager.get_state()
+        tr = result.get('test', {})
         console.print(Panel.fit(
-            f"[bold green]✅ All Phases Complete![/bold green]\n\n"
+            f"[bold green]All Phases Complete![/bold green]\n\n"
             f"[bold]Summary:[/bold]\n"
-            f"  • Files Scanned: [yellow]{result.get('generate', {}).get('files_scanned', 0)}[/yellow]\n"
-            f"  • Tests Generated: [green]{result.get('generate', {}).get('tests_generated', 0)}[/green]\n"
-            f"  • Total Duration: [cyan]{result.get('total_duration', 0):.2f}s[/cyan]\n"
-            f"  • Report: [cyan]{'Generated' if not skip_report else 'Skipped'}[/cyan]",
-            title="🎉 Workflow Complete",
+            f"  • Files Scanned:    [yellow]{result.get('generate', {}).get('files_scanned', 0)}[/yellow]\n"
+            f"  • Tests Generated:  [green]{result.get('generate', {}).get('tests_generated', 0)}[/green]\n"
+            f"  • Tests Passed:     [green]{tr.get('passed', 0)}[/green] / [cyan]{tr.get('total', 0)}[/cyan]\n"
+            f"  • Tests Failed:     [red]{tr.get('failed', 0)}[/red]\n"
+            f"  • Total Duration:   [cyan]{result.get('total_duration', 0):.2f}s[/cyan]\n"
+            f"  • Report:           [cyan]{'Generated' if not skip_report else 'Skipped'}[/cyan]",
+            title="✅ Workflow Complete",
             border_style="green"
         ))
         

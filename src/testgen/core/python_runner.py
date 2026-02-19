@@ -7,6 +7,7 @@ Implements BaseTestRunner for Python projects using pytest.
 import subprocess
 import json
 import ast
+import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -161,7 +162,7 @@ class PythonTestRunner(BaseTestRunner):
         Returns:
             List[str]: The complete command as a list of strings for `subprocess.run`.
         """
-        cmd = ["python", "-m", "pytest"]
+        cmd = [sys.executable, "-m", "pytest"]
         
         # Add test directory
         cmd.append(test_dir)
@@ -408,53 +409,60 @@ if _project_root_str not in sys.path:
         """
         """Parse pytest text output."""
         output = result.stdout if self.capture_output else ""
-        
+        stderr_output = result.stderr if self.capture_output else ""
+        combined = output + "\n" + stderr_output
+
         results = TestResults(
             language=self.get_language(),
             framework=self.get_framework()
         )
-        
-        # Parse summary line (e.g., "5 passed, 2 failed in 1.23s")
+
         import re
-        
-        # Extract individual test results from verbose output
-        # Pattern: test_file.py::test_name PASSED/FAILED/SKIPPED [XX%]
-        # We need to match lines like:
-        # tests/test_calculator.py::test_add PASSED [100%]
-        test_pattern = r'([\w/\\.-]+\.py)::(\S+)\s+(PASSED|FAILED|SKIPPED|ERROR)'
-        
-        for match in re.finditer(test_pattern, output):
+
+        # -- Individual test lines: test_file.py::test_name PASSED/FAILED/SKIPPED/ERROR --
+        test_pattern = r'([\w/\\.:+-]+\.py)::(\S+)\s+(PASSED|FAILED|SKIPPED|ERROR)'
+        for match in re.finditer(test_pattern, combined):
             file_path, test_name, status = match.groups()
-            
-            # Create test result
-            test_result = TestResult(
-                name=f"{file_path}::{test_name}",
+            results.tests.append(TestResult(
+                name=f"{Path(file_path).name}::{test_name}",
                 status=status.lower(),
-                duration=0.0, # Duration is not easily available per test in standard verbose output without plugin
+                duration=0.0,
                 message=""
-            )
-            results.tests.append(test_result)
-        
-        # Parse summary counts
-        passed_match = re.search(r'(\d+) passed', output)
-        failed_match = re.search(r'(\d+) failed', output)
-        skipped_match = re.search(r'(\d+) skipped', output)
-        error_match = re.search(r'(\d+) error', output)
-        duration_match = re.search(r'in ([\d.]+)s', output)
-        
-        if passed_match:
-            results.passed = int(passed_match.group(1))
-        if failed_match:
-            results.failed = int(failed_match.group(1))
-        if skipped_match:
-            results.skipped = int(skipped_match.group(1))
-        if error_match:
-            results.errors = int(error_match.group(1))
-        if duration_match:
-            results.duration = float(duration_match.group(1))
-        
+            ))
+
+        # -- Collection errors: "ERROR collecting test_something.py" --
+        collection_pattern = r'ERROR collecting ([\w/\\.-]+\.py)'
+        for match in re.finditer(collection_pattern, combined):
+            file_path = match.group(1)
+            results.tests.append(TestResult(
+                name=f"{Path(file_path).name}::COLLECTION_ERROR",
+                status="error",
+                duration=0.0,
+                message="Failed to collect (import/syntax error — run with --debug to see details)"
+            ))
+
+        # -- Summary line: "N passed", "N failed", etc. --
+        passed_match  = re.search(r'(\d+) passed',  combined)
+        failed_match  = re.search(r'(\d+) failed',  combined)
+        skipped_match = re.search(r'(\d+) skipped', combined)
+        error_match   = re.search(r'(\d+) error',   combined)
+        duration_match = re.search(r'in ([\d.]+)s', combined)
+
+        if passed_match:   results.passed   = int(passed_match.group(1))
+        if failed_match:   results.failed   = int(failed_match.group(1))
+        if skipped_match:  results.skipped  = int(skipped_match.group(1))
+        if error_match:    results.errors   = int(error_match.group(1))
+        if duration_match: results.duration = float(duration_match.group(1))
+
+        # Fall back to counting parsed test lines when summary is absent
+        if results.passed == results.failed == results.skipped == results.errors == 0 and results.tests:
+            for t in results.tests:
+                if t.status == 'passed':  results.passed  += 1
+                elif t.status == 'failed': results.failed += 1
+                elif t.status == 'skipped': results.skipped += 1
+                else:                      results.errors  += 1
+
         results.total = results.passed + results.failed + results.skipped + results.errors
-        
         return results
     
     def validate_test_file(self, test_file: str) -> bool:

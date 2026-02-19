@@ -373,60 +373,66 @@ class WorkflowManager:
         if self.runner:
             # Run tests using the runner
             try:
+                # Use JSON report for structured results; fall back to text parsing if plugin absent
+                json_report_file = str(self.cache_dir / "pytest_report.json")
                 results = self.runner.run_tests(
                     test_dir=str(self.output_dir),
-                    pattern=None
+                    pattern=None,
+                    json_report=True,
+                    json_report_file=json_report_file,
                 )
-                
+
                 # Helper to convert TestResult to dict
                 def result_to_dict(test_result):
-                    # Normalize status for reporter (passed -> PASS)
                     status_map = {
                         'passed': 'PASS',
                         'failed': 'FAIL',
                         'skipped': 'SKIP',
-                        'error': 'ERROR'
+                        'error': 'ERROR',
                     }
                     status = status_map.get(test_result.status.lower(), test_result.status.upper())
-                    
                     return {
-                        'test_name': test_result.name,  # Mapped to test_name for reporter
+                        'test_name': test_result.name,
                         'status': status,
                         'duration': test_result.duration,
                         'message': test_result.message,
-                        'traceback': test_result.traceback,
-                        'file_path': str(test_result.file_path) if test_result.file_path else None,
-                        'line_number': test_result.line_number,
+                        'traceback': getattr(test_result, 'traceback', None),
+                        'file_path': str(test_result.file_path) if getattr(test_result, 'file_path', None) else None,
+                        'line_number': getattr(test_result, 'line_number', None),
                         'language': lang,
-                        'details': test_result.message or '' # Map message to details
+                        'details': test_result.message or '',
                     }
 
-                # Store results
                 self.state.test_results = {
-                    'total': results.total if hasattr(results, 'total') else 0,
-                    'passed': results.passed if hasattr(results, 'passed') else 0,
-                    'failed': results.failed if hasattr(results, 'failed') else 0,
-                    'skipped': results.skipped if hasattr(results, 'skipped') else 0,
-                    'errors': results.errors if hasattr(results, 'errors') else 0,
-                    'duration': results.duration if hasattr(results, 'duration') else 0.0,
-                    'results': [result_to_dict(t) for t in results.tests] if hasattr(results, 'tests') and results.tests else []
+                    'total':   getattr(results, 'total',   0),
+                    'passed':  getattr(results, 'passed',  0),
+                    'failed':  getattr(results, 'failed',  0),
+                    'skipped': getattr(results, 'skipped', 0),
+                    'errors':  getattr(results, 'errors',  0),
+                    'duration': getattr(results, 'duration', 0.0),
+                    'language': lang,
+                    'results': [result_to_dict(t) for t in results.tests]
+                              if getattr(results, 'tests', None) else [],
                 }
+
             except Exception as e:
-                # Handle runner errors gracefully
                 self.state.test_results = {
-                    'total': 0,
-                    'passed': 0,
-                    'failed': 0,
-                    'duration': 0.0,
-                    'error': str(e)
+                    'total': 0, 'passed': 0, 'failed': 0, 'skipped': 0,
+                    'errors': 1, 'duration': 0.0, 'language': lang,
+                    'results': [{
+                        'test_name': 'runner_error',
+                        'status': 'ERROR',
+                        'duration': 0.0,
+                        'message': str(e),
+                        'details': str(e),
+                    }],
+                    'error': str(e),
                 }
         else:
             # No runner available
             self.state.test_results = {
-                'total': 0,
-                'passed': 0,
-                'failed': 0,
-                'duration': 0.0
+                'total': 0, 'passed': 0, 'failed': 0, 'skipped': 0,
+                'errors': 0, 'duration': 0.0, 'language': lang, 'results': [],
             }
         
         self.state.end_time = datetime.now()
