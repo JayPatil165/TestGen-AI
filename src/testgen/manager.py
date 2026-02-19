@@ -291,11 +291,27 @@ class WorkflowManager:
         self.state.phase = "GENERATING"
         self.printer.print_header("🤖 Generating Tests with LLM")
         
-        generated_tests = []
+        # Names and directory segments that should never be test targets
+        _SKIP_NAMES = {
+            '__init__.py', 'conftest.py', 'setup.py', 'setup.cfg',
+            'manage.py', 'wsgi.py', 'asgi.py',
+        }
+        _SKIP_DIRS = {
+            '__pycache__', 'TestGen-AI', '.git', 'node_modules',
+            '.venv', 'venv', 'env', '.env', 'dist', 'build',
+            '.tox', '.eggs', '.mypy_cache', '.pytest_cache',
+        }
+
         generated_tests = []
         for file_path in files:
-            # Skip existing tests to avoid recursion (test_test_*.py)
-            if file_path.name.startswith('test_') or 'tests' in str(file_path):
+            # Skip boilerplate / infrastructure files
+            if file_path.name in _SKIP_NAMES:
+                continue
+            # Skip files whose path passes through an excluded directory
+            if any(part in _SKIP_DIRS for part in file_path.parts):
+                continue
+            # Skip already-generated test files
+            if file_path.name.startswith('test_') or file_path.name.endswith('_test.py'):
                 continue
 
             try:
