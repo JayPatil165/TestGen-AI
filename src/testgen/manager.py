@@ -302,6 +302,8 @@ class WorkflowManager:
                 # Read source code
                 source_code = file_path.read_text(encoding='utf-8')
                 
+                self.printer.print_status(f"⏳ AI writing tests for: {file_path.name}")
+
                 # Generate test
                 test_code = self.llm_client.generate_test(
                     source_code=source_code,
@@ -438,9 +440,13 @@ class WorkflowManager:
         self.state.end_time = datetime.now()
         self.state.phase = "IDLE"
         
+        # Always cache results so `testgen report` can find them without re-running
+        try:
+            self.cache_test_results(self.state.test_results, lang)
+        except Exception:
+            pass  # Never fail just because caching failed
+
         return self.state.test_results
-    
-    def execute_report(
         self,
         results: Optional[Dict[str, Any]] = None,
         format: str = 'html'

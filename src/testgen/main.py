@@ -73,14 +73,28 @@ def _mask(key: str) -> str:
 
 
 def _available_providers() -> list[tuple[str, str]]:
-    """Return list of (provider_name, masked_key) for every configured key."""
+    """Return list of (provider_name, masked_key) for every configured real key."""
     from testgen.config import LLMProvider
+
+    def _is_real_key(k: Optional[str]) -> bool:
+        """Return False for None, empty, or obvious template placeholders."""
+        if not k:
+            return False
+        low = k.lower()
+        # Common placeholder patterns in .env templates
+        if any(p in low for p in ("your-", "-here", "your_", "example", "placeholder", "xxx")):
+            return False
+        if low.startswith("sk-your") or low.startswith("your-"):
+            return False
+        # Minimum realistic API key length
+        return len(k) >= 16
+
     providers = []
-    if config.gemini_api_key:
+    if _is_real_key(config.gemini_api_key):
         providers.append((LLMProvider.GEMINI.value, _mask(config.gemini_api_key)))
-    if config.openai_api_key:
+    if _is_real_key(config.openai_api_key):
         providers.append((LLMProvider.OPENAI.value, _mask(config.openai_api_key)))
-    if config.anthropic_api_key:
+    if _is_real_key(config.anthropic_api_key):
         providers.append((LLMProvider.ANTHROPIC.value, _mask(config.anthropic_api_key)))
     if config.llm_provider.value == 'ollama':
         providers.append(('ollama', '(no key needed)'))
@@ -302,10 +316,14 @@ def generate(
         # Execute generate workflow
         console.print("\n[yellow]📊 Analyzing code and generating tests...[/yellow]")
         
-        result = manager.execute_generate(
-            source_files=[str(target_directory)],
-            language='python'
-        )
+        with console.status(
+            "[bold cyan]\ud83e\udd16 AI is generating test files... (this may take a minute)[/bold cyan]",
+            spinner="dots",
+        ):
+            result = manager.execute_generate(
+                source_files=[str(target_directory)],
+                language='python'
+            )
         
         # Success message
         console.print("\n[green]✅ Test generation completed![/green]")
@@ -802,11 +820,15 @@ def auto(
         # Execute auto workflow
         console.print("[bold cyan]═══ Executing Auto Workflow ═══[/bold cyan]\n")
         
-        result = manager.execute_auto(
-            source_files=[str(target_directory)],
-            language='python',
-            report_format='both' if not skip_report else 'json'
-        )
+        with console.status(
+            "[bold cyan]\ud83e\udd16 Running full workflow: analyze \u2192 generate \u2192 test \u2192 report...[/bold cyan]",
+            spinner="dots",
+        ):
+            result = manager.execute_auto(
+                source_files=[str(target_directory)],
+                language='python',
+                report_format='both' if not skip_report else 'json'
+            )
         
         # Final Summary
         state_info = manager.get_state()

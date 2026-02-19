@@ -177,6 +177,9 @@ class PythonTestRunner(BaseTestRunner):
             if json_report_file:
                 cmd.append(f"--json-report-file={json_report_file}")
         
+        # Always continue past collection errors so valid tests still run
+        cmd.append("--continue-on-collection-errors")
+
         # Add short traceback
         cmd.append("--tb=short")
         

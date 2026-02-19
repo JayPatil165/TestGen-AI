@@ -209,59 +209,116 @@ class LLMClient:
         file_path: Optional[str] = None,
         **kwargs
     ) -> str:
-        """Generate test code for the provided source code using a specialized prompt.
+        """Generate test code for the provided source code using a specialized prompt."""
+        import ast as _ast
 
-        Constructs a role-playing system prompt and a detailed user prompt
-        containing the source code to guide the LLM in creating high-quality
-        Pytest (or equivalent) test suites.
+        system_prompt = (
+            f"You are an expert test engineer specializing in {language} testing.\n"
+            "Return ONLY valid, runnable Python source code — no markdown, no backticks, "
+            "no explanations, no prose.\n"
+            "CRITICAL FORMATTING RULES:\n"
+            "1. Every string literal (including assertion strings) MUST be on a single line.\n"
+            "2. Never wrap a long line by breaking a string across two lines.\n"
+            "3. If an assertion string is long, shorten it — never split it with a newline.\n"
+            "4. Docstrings may use triple quotes but MUST fit on one or three lines — never "
+            "   wrap a single-quoted or double-quoted string literal mid-sentence.\n"
+            "5. The output must be parseable by Python's ast.parse() without errors."
+        )
 
-        Args:
-            source_code (str): The raw source code of the component to test.
-            language (str): Programming language (e.g., 'python', 'javascript').
-            file_path (Optional[str]): Original path of the source file for context.
-            **kwargs: Forwarded to the `generate` method.
+        user_prompt = (
+            f"Generate pytest unit tests for the following {language} code.\n\n"
+            f"File: {file_path or 'unknown'}\n\n"
+            f"```{language}\n{source_code}\n```\n\n"
+            "Requirements:\n"
+            "- Use pytest (functions or classes starting with test_/Test)\n"
+            "- Cover normal cases, edge cases, and error handling\n"
+            "- Each test has a one-line docstring\n"
+            "- All string literals on a SINGLE line — never break them with a newline\n"
+            "- Output ONLY the Python source code, no markdown fences\n\n"
+            "Python test code:"
+        )
 
-        Returns:
-            str: The generated test code, cleaned of markdown fences and artifacts.
-        """
-        # Create system prompt
-        system_prompt = f"""You are an expert test engineer specializing in {language} testing.
-Your task is to generate comprehensive, high-quality unit tests."""
-
-        # Create user prompt
-        user_prompt = f"""Generate unit tests for the following {language} code:
-
-```{language}
-{source_code}
-```
-
-File: {file_path or 'unknown'}
-
-Requirements:
-- Use pytest framework
-- Include edge cases and error handling tests
-- Add docstrings to explain what each test does
-- Ensure tests are runnable and follow best practices
-- Generate ONLY the test code, no explanations
-
-Generate comprehensive unit tests:"""
-        
-        # Call generate and extract content
         response = self.generate(user_prompt, system_prompt=system_prompt, **kwargs)
         test_code = response.content
-        
-        # Strip markdown code fences if present
-        if test_code.startswith("```"):
-            lines = test_code.split('\n')
-            # Remove first line if it's ```python or ```
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            # Remove last line if it's ```
-            if lines and lines[-1].strip() ==  "```":
-                lines = lines[:-1]
-            test_code = '\n'.join(lines)
-        
+
+        # Strip markdown code fences (```python ... ``` or ``` ... ```)
+        test_code = self._strip_code_fences(test_code)
+
+        # Repair common LLM formatting issues (line-wrapped string literals)
+        test_code = self._repair_linebroken_strings(test_code)
+
+        # Validate syntax; if still broken, emit a warning comment at the top
+        try:
+            _ast.parse(test_code)
+        except SyntaxError as exc:
+            # Prepend a warning so the user knows — file will still be saved
+            test_code = (
+                f"# WARNING: TestGen AI detected a syntax issue in this file: {exc}\n"
+                f"# Please review and fix manually, or re-run 'testgen generate'.\n\n"
+                + test_code
+            )
+
         return test_code
+
+    @staticmethod
+    def _strip_code_fences(code: str) -> str:
+        """Remove markdown code fences from LLM output."""
+        lines = code.strip().splitlines()
+        # Drop leading fence line (```python, ```py, ```, etc.)
+        if lines and lines[0].lstrip().startswith("```"):
+            lines = lines[1:]
+        # Drop trailing fence line
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        # Handle rare double-wrapping
+        result = "\n".join(lines).strip()
+        if result.startswith("```"):
+            result = result[result.index("\n") + 1:]
+        if result.endswith("```"):
+            result = result[:result.rindex("```")]
+        return result.strip()
+
+    @staticmethod
+    def _repair_linebroken_strings(code: str) -> str:
+        """
+        Detect and repair string literals that the LLM has broken across two lines.
+
+        Pattern: a line ends without closing its string quote, and the next
+        line is a continuation ending properly (same quote type).  Join them.
+        """
+        import re
+        lines = code.splitlines()
+        out: List[str] = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            # Count unescaped single and double quotes to detect open strings
+            # Quick heuristic: if odd number of unescaped " → might be open
+            stripped = line.rstrip()
+            # Check if there is an unclosed string on this line
+            # Use a simple tokeniser: walk the line tracking quote state
+            in_single = False
+            in_double = False
+            j = 0
+            while j < len(stripped):
+                c = stripped[j]
+                if c == '\\':
+                    j += 2
+                    continue
+                if c == '"' and not in_single:
+                    in_double = not in_double
+                elif c == "'" and not in_double:
+                    in_single = not in_single
+                j += 1
+            # If a string is left open AND there is a next line, merge them
+            if (in_single or in_double) and i + 1 < len(lines):
+                combined = stripped + " " + lines[i + 1].lstrip()
+                out.append(combined)
+                i += 2
+            else:
+                out.append(line)
+                i += 1
+        return "\n".join(out)
     
     def _generate_gemini(
         self,
