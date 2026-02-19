@@ -1,8 +1,8 @@
 site_name: TestGen-AI
 site_description: Autonomous AI-Powered Quality Assurance Agent
-site_author: Jay Patil
+site_author: Jay Ajitkumar Patil
 repo_url: https://github.com/JayPatil165/TestGen-AI
-repo_name: TestGen-AI
+repo_name: JayPatil165/TestGen-AI
 
 docs_dir: docs_source
 site_dir: docs
@@ -72,5 +72,9 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/JayPatil165/TestGen-AI
-  copyright: Copyright &copy; 2026 Jay Patil | patiljay32144@gmail.com
+      link: https://github.com/JayPatil165
+      name: JayPatil165 on GitHub
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/jay-patil-4ab857326/
+      name: Jay Ajitkumar Patil on LinkedIn
+  copyright: Copyright &copy; 2026 <a href="https://www.linkedin.com/in/jay-patil-4ab857326/">Jay Ajitkumar Patil</a> | <a href="mailto:patiljay32145@gmail.com">patiljay32145@gmail.com</a>

@@ -25,4 +25,4 @@ TestGen-AI is designed to integrate seamlessly into existing CI/CD pipelines and
 
 ---
 
-For technical inquiries or contributions, contact: [patiljay32144@gmail.com](mailto:patiljay32144@gmail.com)
+For technical inquiries or contributions, contact: [patiljay32145@gmail.com](mailto:patiljay32145@gmail.com)
