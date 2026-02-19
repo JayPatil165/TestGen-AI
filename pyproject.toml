@@ -8,7 +8,6 @@ version = "0.1.0"
 description = "The Autonomous QA Agent from Your CLI - AI-powered test generation and execution"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "TBD"}
 authors = [
     {name = "Jay Ajitkumar Patil", email = "patiljay32145@gmail.com"}
 ]
@@ -66,7 +65,7 @@ dev = [
 Homepage = "https://github.com/JayPatil165/TestGen-AI"
 Repository = "https://github.com/JayPatil165/TestGen-AI"
 Issues = "https://github.com/JayPatil165/TestGen-AI/issues"
-Documentation = "https://github.com/JayPatil165/TestGen-AI/tree/main/docs"
+Documentation = "https://JayPatil165.github.io/TestGen-AI/"
 
 [project.scripts]
 testgen = "testgen.main:app"

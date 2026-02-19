@@ -6,9 +6,13 @@ pydantic-settings>=2.0.0
 watchdog>=3.0.0
 pytest>=7.0.0
 pytest-json-report>=1.5.0
-playwright>=1.40.0
+tiktoken>=0.7.0
 jinja2>=3.1.0
 google-generativeai>=0.3.0
+pytest-mock>=3.12.0
+
+[browser]
+playwright>=1.40.0
 
 [dev]
 black>=23.0.0

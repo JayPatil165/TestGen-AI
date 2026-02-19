@@ -1,0 +1,59 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"          # triggers on any tag like v0.1.0, v1.2.3, etc.
+  workflow_dispatch:  # also allows manual trigger from GitHub Actions tab
+
+permissions:
+  id-token: write   # required for Trusted Publishing (OIDC — no API token needed)
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tool
+        run: pip install build
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: pypi
+      url: https://pypi.org/project/testgen-ai/
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # Uses Trusted Publishing (OIDC) — no PYPI_API_TOKEN secret needed.
+        # One-time setup required on PyPI:
+        #   pypi.org → Your projects → testgen-ai → Publishing → Add publisher
+        #   Publisher: GitHub  |  Owner: JayPatil165  |  Repo: TestGen-AI
+        #   Workflow: publish.yml  |  Environment: pypi

@@ -2,12 +2,11 @@ Metadata-Version: 2.4
 Name: testgen-ai
 Version: 0.1.0
 Summary: The Autonomous QA Agent from Your CLI - AI-powered test generation and execution
-Author-email: Jay Patil <your.email@example.com>
-License: TBD
+Author-email: Jay Ajitkumar Patil <patiljay32145@gmail.com>
 Project-URL: Homepage, https://github.com/JayPatil165/TestGen-AI
 Project-URL: Repository, https://github.com/JayPatil165/TestGen-AI
 Project-URL: Issues, https://github.com/JayPatil165/TestGen-AI/issues
-Project-URL: Documentation, https://github.com/JayPatil165/TestGen-AI/tree/main/docs
+Project-URL: Documentation, https://JayPatil165.github.io/TestGen-AI/
 Keywords: testing,qa,ai,llm,test-generation,automation,pytest,tdd
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
@@ -27,9 +26,12 @@ Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: watchdog>=3.0.0
 Requires-Dist: pytest>=7.0.0
 Requires-Dist: pytest-json-report>=1.5.0
-Requires-Dist: playwright>=1.40.0
+Requires-Dist: tiktoken>=0.7.0
 Requires-Dist: jinja2>=3.1.0
 Requires-Dist: google-generativeai>=0.3.0
+Requires-Dist: pytest-mock>=3.12.0
+Provides-Extra: browser
+Requires-Dist: playwright>=1.40.0; extra == "browser"
 Provides-Extra: dev
 Requires-Dist: black>=23.0.0; extra == "dev"
 Requires-Dist: ruff>=0.1.0; extra == "dev"

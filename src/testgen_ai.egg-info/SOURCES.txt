@@ -1,8 +1,10 @@
 README.md
 pyproject.toml
 src/testgen/__init__.py
+src/testgen/__main__.py
 src/testgen/config.py
 src/testgen/main.py
+src/testgen/manager.py
 src/testgen/core/__init__.py
 src/testgen/core/auto_runner.py
 src/testgen/core/base_runner.py
@@ -54,6 +56,7 @@ src/testgen/mcp/__init__.py
 src/testgen/prompts/__init__.py
 src/testgen/ui/__init__.py
 src/testgen/ui/printer.py
+src/testgen/ui/reporter.py
 src/testgen_ai.egg-info/PKG-INFO
 src/testgen_ai.egg-info/SOURCES.txt
 src/testgen_ai.egg-info/dependency_links.txt
