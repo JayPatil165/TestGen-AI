@@ -239,6 +239,30 @@ class WorkflowManager:
         # Phase 1: Analyze (Scan)
         self.printer.print_header(f"🔍 Analyzing {lang.upper()} Code")
         
+        # Patterns that should never be test targets (matched against RELATIVE path parts)
+        _SKIP_NAMES = {
+            '__init__.py', 'conftest.py', 'setup.py',
+            'manage.py', 'wsgi.py', 'asgi.py',
+        }
+        _SKIP_DIRS = {
+            '__pycache__', 'TestGen-AI', '.git', 'node_modules',
+            '.venv', 'venv', 'env', 'dist', 'build',
+            '.tox', '.eggs', '.mypy_cache', '.pytest_cache',
+        }
+
+        def _should_skip(fp: Path, scan_root: Path) -> bool:
+            """Return True if this file should be excluded from LLM generation."""
+            if fp.name in _SKIP_NAMES:
+                return True
+            if fp.name.startswith('test_') or fp.name.endswith('_test.py'):
+                return True
+            # Only check RELATIVE path parts so the project root name is never matched
+            try:
+                rel_parts = fp.relative_to(scan_root).parent.parts
+            except ValueError:
+                rel_parts = fp.parent.parts
+            return any(part in _SKIP_DIRS for part in rel_parts)
+
         # Discover source files
         files = []
         if source_files:
@@ -247,9 +271,15 @@ class WorkflowManager:
                 if path.is_dir():
                     # If it's a directory, find Python files in it
                     if lang == 'python':
-                        files.extend(path.rglob('*.py'))
+                        files.extend(
+                            f for f in path.rglob('*.py')
+                            if not _should_skip(f, path)
+                        )
                     elif lang == 'javascript':
-                        files.extend(path.rglob('*.js'))
+                        files.extend(
+                            f for f in path.rglob('*.js')
+                            if not _should_skip(f, path)
+                        )
                     # Add more patterns for other languages
                 elif path.is_file():
                     files.append(path)
@@ -291,27 +321,11 @@ class WorkflowManager:
         self.state.phase = "GENERATING"
         self.printer.print_header("🤖 Generating Tests with LLM")
         
-        # Names and directory segments that should never be test targets
-        _SKIP_NAMES = {
-            '__init__.py', 'conftest.py', 'setup.py', 'setup.cfg',
-            'manage.py', 'wsgi.py', 'asgi.py',
-        }
-        _SKIP_DIRS = {
-            '__pycache__', 'TestGen-AI', '.git', 'node_modules',
-            '.venv', 'venv', 'env', '.env', 'dist', 'build',
-            '.tox', '.eggs', '.mypy_cache', '.pytest_cache',
-        }
-
         generated_tests = []
         for file_path in files:
-            # Skip boilerplate / infrastructure files
+            # Files are already pre-filtered by _should_skip() above
+            # (kept loop simple — scanner path still needs filtering)
             if file_path.name in _SKIP_NAMES:
-                continue
-            # Skip files whose path passes through an excluded directory
-            if any(part in _SKIP_DIRS for part in file_path.parts):
-                continue
-            # Skip already-generated test files
-            if file_path.name.startswith('test_') or file_path.name.endswith('_test.py'):
                 continue
 
             try:

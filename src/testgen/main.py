@@ -317,7 +317,7 @@ def generate(
         console.print("\n[yellow]📊 Analyzing code and generating tests...[/yellow]")
         
         with console.status(
-            "[bold cyan]\ud83e\udd16 AI is generating test files... (this may take a minute)[/bold cyan]",
+            "[bold cyan]AI is generating test files... (this may take a minute)[/bold cyan]",
             spinner="dots",
         ):
             result = manager.execute_generate(
@@ -821,7 +821,7 @@ def auto(
         console.print("[bold cyan]═══ Executing Auto Workflow ═══[/bold cyan]\n")
         
         with console.status(
-            "[bold cyan]\ud83e\udd16 Running full workflow: analyze \u2192 generate \u2192 test \u2192 report...[/bold cyan]",
+            "[bold cyan]Running full workflow: analyze -> generate -> test -> report...[/bold cyan]",
             spinner="dots",
         ):
             result = manager.execute_auto(
