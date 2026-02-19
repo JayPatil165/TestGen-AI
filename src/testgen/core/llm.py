@@ -31,7 +31,14 @@ class LLMResponse(BaseModel):
         output_tokens (int): Number of tokens in the generated response.
         cost (float): Estimated monetary cost of the generation in USD.
     """
-    
+    content: str
+    model: str = ""
+    provider: str = ""
+    tokens_used: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost: float = 0.0
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -275,52 +282,47 @@ Generate comprehensive unit tests:"""
             LLMResponse: Structured response with metadata.
         """
         try:
-            import google.generativeai as genai
-            
-            # Configure with API key
-            genai.configure(api_key=self.api_key)
-            
-            # Create model - add "models/" prefix if not present
-            model_name = self.model
-            if not model_name.startswith("models/"):
-                model_name = f"models/{model_name}"
-            
-            model = genai.GenerativeModel(model_name)
-            
-            # Build prompt
+            from google import genai
+            from google.genai import types as genai_types
+
+            client = genai.Client(api_key=self.api_key)
+
+            # Build prompt (system instruction prepended if provided)
             full_prompt = prompt
             if system_prompt:
                 full_prompt = f"{system_prompt}\n\n{prompt}"
-            
-            # Configure generation
-            generation_config = {
-                "temperature": temperature or self.temperature,
-                "max_output_tokens": max_tokens or self.max_tokens,
-            }
-            
-            # Generate
-            response = model.generate_content(
-                full_prompt,
-                generation_config=generation_config
+
+            # Strip any "models/" prefix — google.genai uses bare names
+            model_name = self.model
+            if model_name.startswith("models/"):
+                model_name = model_name[len("models/"):]
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=full_prompt,
+                config=genai_types.GenerateContentConfig(
+                    temperature=temperature or self.temperature,
+                    max_output_tokens=max_tokens or self.max_tokens,
+                ),
             )
-            
-            # Extract content
+
             content = response.text
-            
-            # Estimate tokens (Gemini doesn't always provide usage)
-            input_tokens = len(full_prompt.split()) * 1.3  # rough estimate
-            output_tokens = len(content.split()) * 1.3
-            
+
+            # Use token metadata when available
+            usage = getattr(response, "usage_metadata", None)
+            input_tokens = getattr(usage, "prompt_token_count", 0) or int(len(full_prompt.split()) * 1.3)
+            output_tokens = getattr(usage, "candidates_token_count", 0) or int(len(content.split()) * 1.3)
+
             return LLMResponse(
                 content=content,
                 model=self.model,
                 provider=self.provider.value,
-                tokens_used=int(input_tokens + output_tokens),
-                input_tokens=int(input_tokens),
-                output_tokens=int(output_tokens),
-                cost=0.0  # Gemini is free
+                tokens_used=input_tokens + output_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost=0.0,  # Gemini free tier
             )
-            
+
         except Exception as e:
             raise ValueError(f"Gemini generation failed: {str(e)}") from e
     

@@ -485,7 +485,7 @@ class WorkflowManager:
         if format in ['html', 'both']:
             html_filename = f"report_{timestamp}.html"
             html_path = self.report_dir / html_filename
-            self.reporter.generate_html_from_template(summary, str(html_path))
+            self.reporter.generate_html(summary, str(html_path))
             reports.append(str(html_path))
             self.printer.print_success(f"HTML report: {html_path}")
         
@@ -567,7 +567,25 @@ class WorkflowManager:
             Dict[str, Any]: A snapshot of the current workflow status, including
                 phase, results, errors, and timing information.
         """
-    
+        state_dict = {
+            'phase': self.state.phase,
+            'files_scanned': self.state.files_scanned,
+            'tests_generated': self.state.tests_generated,
+            'test_results': self.state.test_results,
+            'report_path': self.state.report_path,
+            'errors': self.state.errors,
+            'start_time': self.state.start_time.isoformat() if self.state.start_time else None,
+            'end_time': self.state.end_time.isoformat() if self.state.end_time else None,
+        }
+
+        # If in-memory test results are empty, fall back to the disk cache
+        if not state_dict['test_results']:
+            cached = self.load_test_cache(self.language)
+            if cached:
+                state_dict['test_results'] = cached
+
+        return state_dict
+
     def reset_state(self) -> None:
         """Reset the internal workflow state to its initial 'IDLE' values.
 

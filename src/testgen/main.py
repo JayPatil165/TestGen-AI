@@ -6,6 +6,7 @@ All commands are defined here: generate, test, report, auto, and version.
 """
 
 import sys
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -34,6 +35,34 @@ class GlobalState:
     debug: bool = False
 
 state = GlobalState()
+
+
+def _check_for_update() -> None:
+    """Background thread: silently query PyPI and print a notice if a newer version exists."""
+    try:
+        import urllib.request
+        import json as _json
+        url = "https://pypi.org/pypi/testgen-ai/json"
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            data = _json.loads(resp.read().decode())
+        latest = data["info"]["version"]
+        if latest != __version__:
+            console.print(
+                f"[dim]⬆️  Update available: [bold]{latest}[/bold] "
+                f"(you have {__version__}) — "
+                f"run [cyan]pip install --upgrade testgen-ai[/cyan][/dim]"
+            )
+    except Exception:
+        pass  # Never crash on update check failure
+
+
+def _start_update_check() -> None:
+    """Spawn a daemon thread so the check never delays the command."""
+    t = threading.Thread(target=_check_for_update, daemon=True)
+    t.start()
+    # Give the thread up to 3 s to finish before the process exits.
+    # Commands that run longer will already see the notice naturally.
+    t.join(timeout=3)
 
 
 def version_callback(value: bool):
@@ -99,6 +128,9 @@ def main(
     if verbose:
         config.verbose = True
         config.log_level = "DEBUG" if debug else "INFO"
+
+    # Check PyPI for a newer version (runs in background, never blocks)
+    _start_update_check()
 
 
 @app.command()
@@ -202,6 +234,7 @@ def generate(
         console.print("\n[green]✅ Test generation completed![/green]")
         console.print(f"[green]Generated {result.get('tests_generated', 0)} test files[/green]")
         console.print(f"[dim]Output directory: {output_dir}[/dim]")
+        console.print("[dim]  💡 Use [cyan bold]testgen generate --help[/cyan bold] to see all available flags[/dim]")
 
         
         # TODO: Watch mode integration
@@ -430,6 +463,7 @@ def test(
         # Success message
         console.print("\n[green]✅ Test execution completed![/green]")
         console.print(f"[dim]💡 Run 'testgen report {resolved_project_dir}' to generate a report[/dim]")
+        console.print("[dim]  💡 Use [cyan bold]testgen test --help[/cyan bold] to see all available flags[/dim]")
         
     except Exception as e:
         error_lines = str(e).strip().splitlines()
@@ -561,6 +595,7 @@ def report(
         # Success message
         console.print(f"\n[green]✅ Report generated successfully![/green]")
         console.print(f"[green]📄 Report: {report_path}[/green]")
+        console.print("[dim]  💡 Use [cyan bold]testgen report --help[/cyan bold] to see all available flags[/dim]")
         
         # Open in browser if requested
         if open_browser and not pdf and report_path:
@@ -678,6 +713,7 @@ def auto(
         ))
         
         console.print("\n[bold green]Success![/bold green] Your autonomous QA agent has completed all tasks.")
+        console.print("[dim]  💡 Use [cyan bold]testgen auto --help[/cyan bold] to see all available flags[/dim]")
         console.print("[dim]💡 Tip: Use individual commands (generate, test, report) for more control[/dim]\n")
         
     except Exception as e:

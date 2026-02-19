@@ -9,7 +9,7 @@ With Watch Mode, TestGen AI writes tests while you write code, enabling
 true Test-Driven Development without the overhead.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __author__ = "Jay Patil"
 __email__ = "your.email@example.com"
 
