@@ -495,15 +495,28 @@ def test(
             # Look inside <project>/TestGen-AI/tests/ and pick the most recent run
             tests_base = resolved_project_dir / "TestGen-AI" / "tests"
             if tests_base.exists():
-                # Find the latest timestamped run folder
+                # Find the latest timestamped run folder that actually has test files
+                # (skip empty dirs or dirs with only conftest.py that were created
+                # by a failed/aborted generate run)
+                def _has_test_files(d: Path) -> bool:
+                    """Return True if directory contains real test files (not just conftest.py)."""
+                    return any(
+                        f for f in d.iterdir()
+                        if f.is_file()
+                        and f.suffix == '.py'
+                        and f.name not in ('conftest.py', '__init__.py')
+                        and not f.name.startswith('.')
+                    )
+
                 run_dirs = sorted(
                     [d for d in tests_base.iterdir() if d.is_dir()],
                     reverse=True
                 )
-                if run_dirs:
-                    test_dir = run_dirs[0]
-                else:
-                    test_dir = tests_base  # fallback: run on the base
+                # Pick the newest dir that has actual test files
+                test_dir = next(
+                    (d for d in run_dirs if _has_test_files(d)),
+                    run_dirs[0] if run_dirs else tests_base  # fallback if all empty
+                )
             else:
                 # Fallback to legacy default
                 test_dir = resolved_project_dir / "tests"
@@ -525,14 +538,27 @@ def test(
             border_style="cyan"
         ))
         
+        console.print(f"[dim]🗂️  Auto-discovered test dir: {test_dir}[/dim]")
         if state.verbose:
             console.print(f"[dim]Project dir: {resolved_project_dir.absolute()}[/dim]")
             console.print(f"[dim]Test directory: {test_dir.absolute()}[/dim]")
             console.print(f"[dim]Test pattern: {pattern}[/dim]")
-        
+
+        # Count test files so we can warn early if there's nothing to run
+        _test_files_found = [
+            f for f in test_dir.rglob('*.py')
+            if f.name not in ('conftest.py', '__init__.py')
+            and '__pycache__' not in str(f)
+        ] if test_dir.exists() else []
+        if not _test_files_found:
+            console.print(
+                f"[yellow]⚠️  No test files found in {test_dir}[/yellow]\n"
+                "[yellow]   Did a previous 'testgen generate' run complete successfully?[/yellow]"
+            )
+
         # Initialize WorkflowManager anchored to the project directory
         from testgen.manager import WorkflowManager
-        
+
         workflow_config = {
             'language': 'python',
             'output_dir': str(test_dir),
@@ -649,13 +675,13 @@ def report(
             except Exception:
                 pass
 
-        # Determine output path: <project>/TestGen-AI/reports/ with timestamped name
+        # Determine output path: <project>/TestGen-AI/reports/<timestamp>/ folder structure
         if not output_path:
             timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-            ext = "pdf" if pdf else "html"
-            report_dir = resolved_project_dir / "TestGen-AI" / "reports"
+            report_dir = resolved_project_dir / "TestGen-AI" / "reports" / timestamp
             report_dir.mkdir(parents=True, exist_ok=True)
-            output_path = report_dir / f"report_{timestamp}.{ext}"
+            ext = "html"
+            output_path = report_dir / f"report.{ext}"
 
         format_type = "PDF" if pdf else "HTML"
         
@@ -691,6 +717,22 @@ def report(
         
         # Load cached test results
         console.print("\n[yellow]📂 Loading test results...[/yellow]")
+        if state.verbose:
+            cache_file = resolved_project_dir / "TestGen-AI" / ".cache" / "test_results_python.json"
+            console.print(f"[dim]   Cache file: {cache_file}[/dim]")
+            console.print(f"[dim]   Cache exists: {cache_file.exists()}[/dim]")
+            if cache_file.exists():
+                import json
+                from datetime import datetime
+                try:
+                    cache_data = json.loads(cache_file.read_text())
+                    cache_time = datetime.fromisoformat(cache_data['timestamp'])
+                    age_seconds = (datetime.now() - cache_time).total_seconds()
+                    console.print(f"[dim]   Cache timestamp: {cache_time.isoformat()}[/dim]")
+                    console.print(f"[dim]   Cache age: {age_seconds:.0f} seconds ({age_seconds/3600:.1f} hours)[/dim]")
+                except Exception as e:
+                    console.print(f"[dim]   Cache read error: {e}[/dim]")
+        
         state_info = manager.get_state()
         
         if not state_info.get('test_results'):
@@ -706,6 +748,8 @@ def report(
             }
         else:
             test_results = state_info['test_results']
+            if state.verbose:
+                console.print(f"[dim]   ✓ Loaded {test_results.get('total', 0)} test results from cache[/dim]")
         
         # Generate report
         console.print(f"\n[yellow]📊 Generating {format_type} report...[/yellow]")
@@ -716,16 +760,20 @@ def report(
             format=report_format
         )
         
-        # Success message
+        # Success message with clickable link
         console.print(f"\n[green]✅ Report generated successfully![/green]")
-        console.print(f"[green]📄 Report: {report_path}[/green]")
+        console.print(f"[green]📄 Report saved to:[/green]")
+        console.print(f"   [link=file://{Path(report_path).absolute()}]{report_path}[/link]")
+        console.print(f"\n[dim]💡 Click the link above to open, or use:[/dim]")
+        if not pdf:
+            console.print(f"[cyan]   testgen report {resolved_project_dir.name} --open[/cyan]")
         console.print("[dim]  💡 Use [cyan bold]testgen report --help[/cyan bold] to see all available flags[/dim]")
         
         # Open in browser if requested
         if open_browser and not pdf and report_path:
             import webbrowser
             webbrowser.open(f"file://{Path(report_path).absolute()}")
-            console.print("[cyan]🌐 Opened report in browser[/cyan]")
+            console.print("\n[cyan]🌐 Opened report in browser[/cyan]")
         
     except Exception as e:
         error_lines = str(e).strip().splitlines()

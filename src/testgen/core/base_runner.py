@@ -26,6 +26,13 @@ class TestResult:
         file_path (Optional[str]): Path to the file containing this test.
         line_number (Optional[int]): The specific line where the test is defined.
     """
+    name: str
+    status: str
+    duration: float = 0.0
+    message: Optional[str] = None
+    traceback: Optional[str] = None
+    file_path: Optional[str] = None
+    line_number: Optional[int] = None
     
     @property
     def passed(self) -> bool:

@@ -388,10 +388,16 @@ if _project_root_str not in sys.path:
         # Extract individual test results
         tests = json_data.get("tests", [])
         for test in tests:
+            # Sum up setup + call + teardown durations for accurate total
+            setup_dur = test.get("setup", {}).get("duration", 0.0)
+            call_dur = test.get("call", {}).get("duration", 0.0)
+            teardown_dur = test.get("teardown", {}).get("duration", 0.0)
+            total_duration = setup_dur + call_dur + teardown_dur
+            
             test_result = TestResult(
                 name=test.get("nodeid", "unknown"),
                 status=test.get("outcome", "unknown"),
-                duration=test.get("duration", 0.0),
+                duration=total_duration,
                 message=test.get("call", {}).get("longrepr", None)
             )
             results.tests.append(test_result)

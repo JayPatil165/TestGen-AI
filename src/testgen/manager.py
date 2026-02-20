@@ -14,6 +14,7 @@ Rust, PHP, Swift, Kotlin, C++, HTML, CSS
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import json
+import re
 from datetime import datetime
 
 # Core module imports - with graceful fallback for testing
@@ -402,6 +403,10 @@ class WorkflowManager:
         self.state.phase = "EXECUTING"
         self.printer.print_header(f"🧪 Running {lang.upper()} Tests")
         
+        if self.verbose:
+            self.printer.print_info(f"Test directory: {self.output_dir}")
+            self.printer.print_info(f"Runner available: {self.runner is not None}")
+        
         if self.runner:
             # Run tests using the runner
             try:
@@ -446,6 +451,13 @@ class WorkflowManager:
                     'results': [result_to_dict(t) for t in results.tests]
                               if getattr(results, 'tests', None) else [],
                 }
+
+                if self.verbose:
+                    self.printer.print_info(
+                        f"Runner completed: {self.state.test_results['total']} tests collected, "
+                        f"{self.state.test_results['passed']} passed, "
+                        f"{self.state.test_results['failed']} failed"
+                    )
 
             except Exception as e:
                 self.state.test_results = {
@@ -508,44 +520,69 @@ class WorkflowManager:
             raise ValueError("No test results available for reporting")
         
         # Create execution summary
-        # Create execution summary
         summary = ExecutionSummary(
             project_name=f"Test Report for {self.project_path.name}",
             total=report_data.get('total', 0),
             passed=report_data.get('passed', 0),
             failed=report_data.get('failed', 0),
             skipped=report_data.get('skipped', 0),
+            errors=report_data.get('errors', 0),
             duration=report_data.get('duration', 0),
             language=report_data.get('language', self.language),
             results=report_data.get('results', [])
         )
         
-        # Generate reports with timestamped filenames
+        # Generate reports with timestamped filenames or use simple names if in timestamped folder
         self.report_dir.mkdir(parents=True, exist_ok=True)
         
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        # Check if report_dir already includes timestamp (new structure)
+        # e.g., .../reports/2026-02-20_12-34-56/
+        # Use os-agnostic pattern matching for both Unix (/) and Windows (\)
+        is_timestamped_folder = re.match(r'.*[/\\]\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$', str(self.report_dir))
+        
         reports = []
         
-        if format in ['html', 'both']:
+        # Always save HTML (primary format)
+        if is_timestamped_folder:
+            html_filename = "report.html"
+        else:
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
             html_filename = f"report_{timestamp}.html"
-            html_path = self.report_dir / html_filename
-            self.reporter.generate_html(summary, str(html_path))
-            reports.append(str(html_path))
-            self.printer.print_success(f"HTML report: {html_path}")
         
-        if format in ['json', 'both']:
+        html_path = self.report_dir / html_filename
+        self.reporter.generate_html(summary, str(html_path))
+        reports.append(str(html_path))
+        self.printer.print_success(f"HTML report: {html_path}")
+        
+        # Always save JSON (for future format conversions and programmatic access)
+        if is_timestamped_folder:
+            json_filename = "report.json"
+        else:
             json_filename = f"report_{timestamp}.json"
-            json_path = self.report_dir / json_filename
-            self.reporter.generate_json(summary, str(json_path))
-            reports.append(str(json_path))
+            
+        json_path = self.report_dir / json_filename
+        self.reporter.generate_json(summary, str(json_path))
+        reports.append(str(json_path))
+        if self.verbose:
             self.printer.print_success(f"JSON report: {json_path}")
-
-        if format == 'pdf':
-            pdf_filename = f"report_{timestamp}.pdf"
+        
+        # Always generate PDF if requested or if in timestamped folder
+        if format == 'pdf' or is_timestamped_folder:
+            if is_timestamped_folder:
+                pdf_filename = "report.pdf"
+            else:
+                pdf_filename = f"report_{timestamp}.pdf"
+            
             pdf_path = self.report_dir / pdf_filename
-            self.reporter.generate_pdf(summary, str(pdf_path))
-            reports.append(str(pdf_path))
-            self.printer.print_success(f"PDF report: {pdf_path}")
+            try:
+                self.reporter.generate_pdf(summary, str(pdf_path))
+                reports.append(str(pdf_path))
+                self.printer.print_success(f"PDF report: {pdf_path}")
+                if format == 'pdf':
+                    reports.insert(0, str(pdf_path))  # Make PDF primary if explicitly requested
+            except Exception as e:
+                if self.verbose:
+                    self.printer.print_warning(f"PDF generation failed: {e}")
         
         self.state.report_path = reports[0] if reports else None
         self.state.phase = "IDLE"
@@ -803,7 +840,7 @@ class WorkflowManager:
     def load_test_cache(
         self,
         language: str,
-        max_age_seconds: int = 1800
+        max_age_seconds: int = 86400  # 24 hours — report should always find the last test run
     ) -> Optional[Dict[str, Any]]:
         """
         Load cached test results.

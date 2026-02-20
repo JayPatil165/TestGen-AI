@@ -21,6 +21,7 @@ class ExecutionSummary:
         passed: int = 0,
         failed: int = 0,
         skipped: int = 0,
+        errors: int = 0,
         duration: float = 0.0,
         timestamp: Optional[datetime] = None,
         results: Optional[List[Dict[str, Any]]] = None,
@@ -35,6 +36,7 @@ class ExecutionSummary:
             passed: Number of passed tests
             failed: Number of failed tests
             skipped: Number of skipped tests
+            errors: Number of tests with errors
             duration: Total execution duration in seconds
             timestamp: Test execution timestamp
             results: List of individual test results
@@ -45,6 +47,7 @@ class ExecutionSummary:
         self.passed = passed
         self.failed = failed
         self.skipped = skipped
+        self.errors = errors
         self.duration = duration
         self.timestamp = timestamp or datetime.now()
         self.results = results or []
@@ -65,6 +68,7 @@ class ExecutionSummary:
             'passed': self.passed,
             'failed': self.failed,
             'skipped': self.skipped,
+            'errors': self.errors,
             'duration': self.duration,
             'timestamp': self.timestamp.isoformat(),
             'success_rate': self.success_rate,
@@ -163,43 +167,82 @@ class ReportGenerator:
         if results.language:
             language_badge = f'<span class="badge language-badge">{results.language.upper()}</span>'
         
-        # Generate test results table rows
+        # Extract project directory name from results
+        project_dir_name = Path(results.project_name.replace('Test Report for ', '')).name if 'Test Report for ' in results.project_name else 'Project'
+        
+        # Collect unique languages and compute language-wise stats
+        language_stats = {}
+        for test_result in results.results:
+            lang = test_result.get('language', 'unknown').lower()
+            if lang not in language_stats:
+                language_stats[lang] = {'total': 0, 'passed': 0, 'failed': 0, 'skipped': 0}
+            language_stats[lang]['total'] += 1
+            status = test_result.get('status', 'UNKNOWN').upper()
+            if status == 'PASS':
+                language_stats[lang]['passed'] += 1
+            elif status == 'FAIL':
+                language_stats[lang]['failed'] += 1
+            elif status in ['SKIP', 'SKIPPED']:
+                language_stats[lang]['skipped'] += 1
+        
+        # Generate test results table rows with details for ALL tests
         results_rows = ""
         for i, test_result in enumerate(results.results, 1):
-            status = test_result.get('status', 'UNKNOWN')
+            status = test_result.get('status', 'UNKNOWN').upper()
             test_name = test_result.get('test_name', 'Unknown Test')
             duration = test_result.get('duration', 0.0)
+            duration_ns = duration * 1_000_000_000  # Convert to nanoseconds
+            message = test_result.get('message', '')
             details = test_result.get('details', '')
-            lang = test_result.get('language', '').upper()
+            lang = test_result.get('language', 'unknown').lower()
             
-            # Status badge color
+            # Generate insightful details for passed tests if none provided
+            if status == 'PASS' and not details and not message:
+                # Extract meaningful info from test name
+                if 'test_' in test_name:
+                    test_part = test_name.split('::')[-1].replace('test_', '').replace('_', ' ').title()
+                    details = f'✓ {test_part} validation passed'
+                else:
+                    details = '✓ All assertions passed'
+            elif not details:
+                details = message or 'No details available'
+            
+            # Single-line status badge with better colors
             if status == 'PASS':
-                status_badge = '<span class="badge badge-success">✓ PASS</span>'
+                status_badge = '<span class="status-badge status-pass">PASS</span>'
             elif status == 'FAIL':
-                status_badge = '<span class="badge badge-danger">✗ FAIL</span>'
-            elif status == 'SKIP':
-                status_badge = '<span class="badge badge-warning">⊘ SKIP</span>'
+                status_badge = '<span class="status-badge status-fail">FAIL</span>'
+            elif status in ['SKIP', 'SKIPPED']:
+                status_badge = '<span class="status-badge status-skip">SKIP</span>'
+            elif status == 'ERROR':
+                status_badge = '<span class="status-badge status-error">ERROR</span>'
             else:
-                status_badge = f'<span class="badge badge-secondary">{status}</span>'
+                status_badge = f'<span class="status-badge status-other">{status}</span>'
             
             results_rows += f"""
-                <tr>
+                <tr data-status="{status}" data-language="{lang}" data-duration="{duration_ns}">
                     <td>{i}</td>
-                    <td><span class="badge language-badge">{lang}</span></td>
-                    <td>{test_name}</td>
+                    <td><span class="lang-tag">{lang.upper()}</span></td>
+                    <td class="test-name-cell">{test_name}</td>
                     <td>{status_badge}</td>
-                    <td>{duration:.2f}s</td>
-                    <td><small>{details}</small></td>
+                    <td class="duration-cell">{duration_ns:,.0f}ns</td>
+                    <td class="details-cell">{details}</td>
                 </tr>
             """
         
-        # Prepare chart data
+        # Prepare chart data with language stats
         chart_data_json = json.dumps({
             'passed': results.passed,
             'failed': results.failed,
             'skipped': results.skipped,
-            'total': results.total
+            'total': results.total,
+            'languages': language_stats
         })
+        
+        # Format language badge (smaller for title)
+        language_badge = ""
+        if results.language:
+            language_badge = f'<span class="title-lang-badge">{results.language.upper()}</span>'
         
         # Build complete HTML
         html = f"""<!DOCTYPE html>
@@ -207,7 +250,7 @@ class ReportGenerator:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TestGen-AI Report - {results.project_name}</title>
+    <title>TestGen-AI Report ({project_dir_name})</title>
     <!-- Chart.js for graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
@@ -229,66 +272,161 @@ class ReportGenerator:
             margin: 0 auto;
             background-color: white;
             border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             overflow: hidden;
         }}
 
         .header {{
-            background: #ffffff;
-            color: #1f2937;
-            padding: 32px 40px;
-            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 40px;
+            border-bottom: none;
             position: relative;
         }}
 
+        .header-actions {{
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }}
+
+        .btn-download {{
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+
+        .btn-download:hover {{
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }}
+
         h1 {{
-            font-size: 1.875em;
+            font-size: 2em;
             margin-bottom: 8px;
             display: flex;
             align-items: center;
             gap: 12px;
+            font-weight: 700;
+            color: white;
+        }}
+
+        .title-lang-badge {{
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.45em;
             font-weight: 600;
-            color: #111827;
+            letter-spacing: 0.5px;
         }}
 
         .timestamp {{
-            font-size: 0.875em;
-            color: #6b7280;
-            margin-top: 4px;
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.9);
+            margin-top: 6px;
             font-weight: 400;
         }}
 
         .status-badge {{
             display: inline-block;
-            padding: 6px 14px;
-            border-radius: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
             font-weight: 600;
-            font-size: 0.875em;
-            margin-top: 12px;
+            font-size: 0.9em;
+            margin-top: 16px;
+            backdrop-filter: blur(10px);
         }}
         
         .status-badge.passed {{
-            background-color: #d1fae5;
-            color: #065f46;
-            border: 1px solid #10b981;
+            background: rgba(16, 185, 129, 0.2);
+            color: #d1fae5;
+            border: 2px solid rgba(16, 185, 129, 0.5);
         }}
         
         .status-badge.failed {{
-            background-color: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #ef4444;
+            background: rgba(239, 68, 68, 0.2);
+            color: #fecaca;
+            border: 2px solid rgba(239, 68, 68, 0.5);
         }}
         
         .status-badge.partial {{
-            background-color: #fef3c7;
-            color: #92400e;
-            border: 1px solid #f59e0b;
+            background: rgba(245, 158, 11, 0.2);
+            color: #fde68a;
+            border: 2px solid rgba(245, 158, 11, 0.5);
         }}
         
         .status-badge.no-tests {{
-            background-color: #f3f4f6;
+            background: rgba(156, 163, 175, 0.2);
+            color: #e5e7eb;
+            border: 2px solid rgba(156, 163, 175, 0.5);
+        }}
+
+        /* Single-line status badges in table - softer colors */
+        table .status-badge {{
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.7em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin: 0;
+            display: inline-block;
+            min-width: 60px;
+            text-align: center;
+        }}
+
+        .status-pass {{
+            background: #d1f4e0;
+            color: #166534;
+            border: 1px solid #86efac;
+        }}
+
+        .status-fail {{
+            background: #fecaca;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }}
+
+        .status-skip {{
+            background: #fed7aa;
+            color: #9a3412;
+            border: 1px solid #fdba74;
+        }}
+
+        .status-error {{
+            background: #fecaca;
+            color: #7f1d1d;
+            border: 1px solid #f87171;
+        }}
+
+        .status-other {{
+            background: #e5e7eb;
             color: #374151;
             border: 1px solid #d1d5db;
+        }}
+
+        .lang-tag {{
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            color: #1e40af;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: 500;
+            letter-spacing: 0.3px;
         }}
 
         .badge {{
@@ -322,6 +460,110 @@ class ReportGenerator:
             align-items: center;
         }}
 
+        /* Filter section */
+        .filters-section {{
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e5e7eb;
+        }}
+
+        .filters-section h3 {{
+            font-size: 1.1em;
+            margin-bottom: 18px;
+            color: #111827;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+
+        .filters-section h3::before {{
+            content: '⚡';
+            font-size: 1.2em;
+        }}
+
+        .filters-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }}
+
+        .filter-group {{
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }}
+
+        .filter-group label {{
+            font-size: 0.8em;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+
+        .filter-group select,
+        .filter-group input {{
+            padding: 10px 14px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9em;
+            background: white;
+            transition: all 0.2s ease;
+        }}
+
+        .filter-group select:focus,
+        .filter-group input:focus {{
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }}
+
+        .filter-actions {{
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }}
+
+        .btn {{
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }}
+
+        .btn-primary {{
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+        }}
+
+        .btn-primary:hover {{
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4);
+        }}
+
+        .btn-secondary {{
+            background: #f3f4f6;
+            color: #374151;
+        }}
+
+        .btn-secondary:hover {{
+            background: #d1d5db;
+        }}
+
+        .filter-info {{
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #6b7280;
+        }}
+
         .content {{
             padding: 40px;
         }}
@@ -334,19 +576,37 @@ class ReportGenerator:
         }}
 
         .summary-card {{
-            background: rgba(var(--card-rgb), 0.08);
-            border: 2px solid rgba(var(--card-rgb), 1);
+            background: linear-gradient(135deg, rgba(var(--card-rgb), 0.1) 0%, rgba(var(--card-rgb), 0.05) 100%);
+            border: 2px solid rgba(var(--card-rgb), 0.3);
             color: rgb(var(--card-rgb));
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s ease;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }}
+
+        .summary-card::before {{
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(var(--card-rgb), 0.1) 0%, transparent 70%);
+            transition: transform 0.6s;
         }}
 
         .summary-card:hover {{
-            background: rgba(var(--card-rgb), 0.15);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transform: translateY(-2px);
+            background: linear-gradient(135deg, rgba(var(--card-rgb), 0.15) 0%, rgba(var(--card-rgb), 0.08) 100%);
+            box-shadow: 0 8px 16px rgba(var(--card-rgb), 0.2);
+            transform: translateY(-4px);
+            border-color: rgba(var(--card-rgb), 0.5);
+        }}
+
+        .summary-card:hover::before {{
+            transform: translate(-50%, -50%);
         }}
 
         .summary-card.total {{
@@ -354,7 +614,7 @@ class ReportGenerator:
         }}
 
         .summary-card.passed {{
-            --card-rgb: 16, 185, 129;
+            --card-rgb: 34, 197, 94;
         }}
 
         .summary-card.failed {{
@@ -362,7 +622,7 @@ class ReportGenerator:
         }}
 
         .summary-card.skipped {{
-            --card-rgb: 245, 158, 11;
+            --card-rgb: 251, 146, 60;
         }}
 
         .summary-card.duration {{
@@ -370,44 +630,27 @@ class ReportGenerator:
         }}
 
         .summary-card.rate {{
-            --card-rgb: 132, 204, 22;
+            --card-rgb: 168, 85, 247;
         }}
 
         .summary-card h3 {{
             font-size: 0.75em;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #111827;
-            margin-bottom: 10px;
-            font-weight: 600;
-            opacity: 0.7;
+            letter-spacing: 0.08em;
+            color: inherit;
+            margin-bottom: 12px;
+            font-weight: 700;
+            opacity: 0.8;
+            position: relative;
+            z-index: 1;
         }}
 
         .summary-card .value {{
-            font-size: 2.25em;
-            font-weight: 600;
+            font-size: 2.5em;
+            font-weight: 700;
             line-height: 1;
-        }}
-        
-        /* Scroll-triggered animations */
-        .summary-card {{
-            opacity: 0;
-            transform: translateY(20px);
-            animation: fadeInUp 0.6s ease forwards;
-        }}
-        
-        .summary-card:nth-child(1) {{ animation-delay: 0.1s; }}
-        .summary-card:nth-child(2) {{ animation-delay: 0.2s; }}
-        .summary-card:nth-child(3) {{ animation-delay: 0.3s; }}
-        .summary-card:nth-child(4) {{ animation-delay: 0.4s; }}
-        .summary-card:nth-child(5) {{ animation-delay: 0.5s; }}
-        .summary-card:nth-child(6) {{ animation-delay: 0.6s; }}
-        
-        @keyframes fadeInUp {{
-            to {{
-                opacity: 1;
-                transform: translateY(0);
-            }}
+            position: relative;
+            z-index: 1;
         }}
 
         /* Charts Section */
@@ -417,31 +660,40 @@ class ReportGenerator:
         }}
 
         .charts-section h2 {{
-            font-size: 1.5em;
+            font-size: 1.4em;
             margin-bottom: 20px;
-            color: #333;
-            border-bottom: 2px solid #5C6BC0;
+            color: #374151;
+            border-bottom: 2px solid #6366f1;
             padding-bottom: 10px;
+            font-weight: 600;
         }}
 
         .charts-container {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
+            gap: 25px;
         }}
 
         .chart-wrapper {{
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            background: white;
+            padding: 28px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e5e7eb;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }}
+
+        .chart-wrapper:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }}
 
         .chart-wrapper h3 {{
-            font-size: 1.1em;
-            margin-bottom: 15px;
-            color: #333;
+            font-size: 1.15em;
+            margin-bottom: 20px;
+            color: #111827;
             text-align: center;
+            font-weight: 700;
         }}
 
         .chart-wrapper canvas {{
@@ -455,49 +707,89 @@ class ReportGenerator:
         .results-section h2 {{
             font-size: 1.5em;
             margin-bottom: 20px;
-            color: #333;
-            border-bottom: 2px solid #5C6BC0;
+            color: #374151;
+            border-bottom: 2px solid #6366f1;
             padding-bottom: 10px;
+            font-weight: 600;
         }}
 
         table {{
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             background: white;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e5e7eb;
+            font-size: 0.85em;
         }}
 
         thead {{
-            background: linear-gradient(135deg, #5C6BC0 0%, #7986CB 100%);
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
             color: white;
         }}
 
         th {{
-            padding: 15px 12px;
+            padding: 14px 18px;
             text-align: left;
             font-weight: 600;
             text-transform: uppercase;
-            font-size: 0.85em;
-            letter-spacing: 0.5px;
+            font-size: 0.75em;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }}
+
+        th:hover {{
+            background: rgba(255, 255, 255, 0.15);
+        }}
+
+        th::after {{
+            content: '⇅';
+            margin-left: 8px;
+            opacity: 0.6;
+            font-size: 0.9em;
         }}
 
         td {{
-            padding: 12px;
+            padding: 12px 18px;
             border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9em;
         }}
 
         tbody tr {{
-            transition: background-color 0.15s ease;
+            transition: all 0.15s ease;
+            border-bottom: 1px solid #e5e7eb;
         }}
 
         tbody tr:hover {{
-            background-color: #f8f9fa;
+            background: linear-gradient(90deg, rgba(37, 99, 235, 0.04) 0%, rgba(59, 130, 246, 0.04) 100%);
+            transform: translateX(2px);
+        }}
+
+        tbody tr:last-child {{
+            border-bottom: none;
         }}
 
         tbody tr:last-child td {{
             border-bottom: none;
+        }}
+
+        .test-name-cell {{
+            font-weight: 500;
+            color: #374151;
+        }}
+
+        .duration-cell {{
+            color: #6b7280;
+            font-family: 'Courier New', monospace;
+        }}
+
+        .details-cell {{
+            color: #6b7280;
+            max-width: 400px;
         }}
 
         .badge-success {{
@@ -549,7 +841,7 @@ class ReportGenerator:
             }}
 
             h1 {{
-                font-size: 1.5em;
+                font-size: 1.4em;
             }}
 
             .summary-card .value {{
@@ -559,20 +851,459 @@ class ReportGenerator:
             table {{
                 font-size: 0.85em;
             }}
+
+            .filters-grid {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+
+        /* Success Banner Notification */
+        #successBanner {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }}
+
+        #successBanner.show {{
+            display: block;
+        }}
+
+        @keyframes slideDown {{
+            from {{
+                transform: translateY(-100%);
+                opacity: 0;
+            }}
+            to {{
+                transform: translateY(0);
+                opacity: 1;
+            }}
+        }}
+
+        .banner-content {{
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }}
+
+        .banner-message {{
+            flex: 1;
+        }}
+
+        .banner-title {{
+            font-size: 1.1em;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }}
+
+        .banner-text {{
+            font-size: 0.9em;
+            opacity: 0.95;
+        }}
+
+        .banner-close {{
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }}
+
+        .banner-close:hover {{
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }}
+
+        /* Success Banner Notification */
+        #successBanner {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }}
+
+        #successBanner.show {{
+            display: block;
+        }}
+
+        @keyframes slideDown {{
+            from {{
+                transform: translateY(-100%);
+                opacity: 0;
+            }}
+            to {{
+                transform: translateY(0);
+                opacity: 1;
+            }}
+        }}
+
+        .banner-content {{
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }}
+
+        .banner-icon {{
+            font-size: 1.4em;
+            font-weight: bold;
+            flex-shrink: 0;
+        }}
+
+        .banner-text {{
+            font-size: 0.95em;
+            opacity: 0.95;
+            flex: 1;
+        }}
+
+        .banner-close {{
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }}
+
+        .banner-close:hover {{
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }}
+
+        /* Print-friendly styles for PDF generation */
+        @media print {{
+            * {{
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }}
+
+            @page {{
+                margin: 15mm 12mm;
+                size: A4 portrait;
+            }}
+
+            body {{
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }}
+
+            #successBanner {{
+                display: none !important;
+            }}
+
+            .container {{
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                page-break-inside: avoid;
+                padding: 0 !important;
+            }}
+
+            .header {{
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+                color: white !important;
+                padding: 20px 15px !important;
+                page-break-after: avoid;
+                page-break-inside: avoid;
+                margin: 0 !important;
+            }}
+
+            .header h1 {{
+                font-size: 1.6em !important;
+                margin: 0 0 5px 0 !important;
+                text-align: center !important;
+            }}
+
+            .header p {{
+                font-size: 0.9em !important;
+                margin: 0 !important;
+                opacity: 0.95;
+            }}
+
+            .header-actions {{
+                display: none !important;
+            }}
+
+            .filters-section {{
+                display: none !important;
+            }}
+
+            .content {{
+                padding: 15px 12mm !important;
+                page-break-inside: avoid;
+            }}
+
+            /* KPI Cards - Solid backgrounds for print */
+            .summary {{
+                display: grid !important;
+                grid-template-columns: repeat(6, 1fr) !important;
+                gap: 10px !important;
+                margin-bottom: 20px !important;
+                page-break-inside: avoid !important;
+            }}
+
+            .summary-card {{
+                padding: 15px 10px !important;
+                text-align: center !important;
+                border: 3px solid !important;
+                border-radius: 8px !important;
+                page-break-inside: avoid !important;
+                position: relative !important;
+                overflow: visible !important;
+            }}
+
+            .summary-card::before,
+            .summary-card::after {{
+                display: none !important;
+            }}
+
+            .summary-card.total {{
+                background: #3b82f6 !important;
+                border-color: #1e40af !important;
+                color: #000000 !important;
+            }}
+
+            .summary-card.passed {{
+                background: #10b981 !important;
+                border-color: #047857 !important;
+                color: #000000 !important;
+            }}
+
+            .summary-card.failed {{
+                background: #ef4444 !important;
+                border-color: #b91c1c !important;
+                color: #000000 !important;
+            }}
+
+            .summary-card.skipped {{
+                background: #f59e0b !important;
+                border-color: #d97706 !important;
+                color: #000000 !important;
+            }}
+
+            .summary-card.duration {{
+                background: #06b6d4 !important;
+                border-color: #0891b2 !important;
+                color: #000000 !important;
+            }}
+
+            .summary-card.rate {{
+                background: #8b5cf6 !important;
+                border-color: #6d28d9 !important;
+                color: #000000 !important;
+            }}
+
+            .summary-card h3 {{
+                font-size: 11px !important;
+                color: #000000 !important;
+                margin: 0 0 8px 0 !important;
+                padding: 0 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 1px !important;
+                font-weight: 700 !important;
+                opacity: 1 !important;
+                position: relative !important;
+                z-index: 10 !important;
+            }}
+
+            .summary-card .value {{
+                font-size: 26px !important;
+                color: #000000 !important;
+                font-weight: 900 !important;
+                line-height: 1 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                position: relative !important;
+                z-index: 10 !important;
+            }}
+
+            .charts-section {{
+                display: block !important;
+                page-break-before: auto;
+                page-break-inside: avoid !important;
+                margin-bottom: 20px !important;
+                padding: 0 !important;
+                visibility: visible !important;
+            }}
+
+            .charts-section h2 {{
+                font-size: 1.2em !important;
+                margin: 10px 0 8px 0 !important;
+                color: #1e3a8a !important;
+                page-break-after: avoid;
+                text-align: center !important;
+            }}
+
+            .charts-container {{
+                display: flex !important;
+                flex-direction: row !important;
+                gap: 8px !important;
+                justify-content: space-between !important;
+                visibility: visible !important;
+                page-break-inside: avoid !important;
+            }}
+
+            .chart-wrapper {{
+                page-break-inside: avoid !important;
+                background: white !important;
+                padding: 8px !important;
+                border: 1px solid #e5e7eb !important;
+                border-radius: 4px !important;
+                display: block !important;
+                visibility: visible !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+            }}
+
+            .chart-wrapper h3 {{
+                color: #1e3a8a !important;
+                font-size: 0.85em !important;
+                margin: 0 0 6px 0 !important;
+                text-align: center !important;
+            }}
+
+            canvas {{
+                max-width: 100% !important;
+                height: auto !important;
+                page-break-inside: avoid !important;
+                display: block !important;
+                visibility: visible !important;
+            }}
+
+            .results-section {{
+                page-break-before: auto;
+                page-break-inside: auto;
+                margin-bottom: 15px !important;
+            }}
+
+            .results-section h2 {{
+                page-break-after: avoid;
+                margin: 15px 0 10px 0 !important;
+                font-size: 1.3em !important;
+                color: #1e3a8a !important;
+            }}
+
+            table {{
+                break-inside: auto !important;
+                font-size: 0.7em !important;
+                width: 100% !important;
+                page-break-inside: auto;
+                border-collapse: collapse !important;
+                margin-top: 10px;
+            }}
+
+            thead {{
+                display: table-header-group !important;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            }}
+
+            thead th {{
+                color: white !important;
+                padding: 8px 6px !important;
+                font-size: 0.95em !important;
+                font-weight: 600 !important;
+                border: none !important;
+            }}
+
+            tbody tr {{
+                page-break-inside: avoid !important;
+                border-bottom: 1px solid #e5e7eb !important;
+            }}
+
+            tbody tr:nth-child(even) {{
+                background: #f9fafb !important;
+            }}
+
+            td {{
+                padding: 6px !important;
+                font-size: 1em !important;
+                vertical-align: top !important;
+            }}
+
+            th::after {{
+                display: none !important;
+            }}
+
+            .test-name-cell {{
+                max-width: 220px;
+                font-size: 0.95em !important;
+                word-wrap: break-word !important;
+            }}
+
+            .duration-cell {{
+                font-size: 0.9em !important;
+                white-space: nowrap;
+            }}
+
+            .details-cell {{
+                max-width: 200px;
+                font-size: 0.88em !important;
+                word-wrap: break-word !important;
+            }}
+
+            .footer {{
+                page-break-before: avoid;
+                margin-top: 15px !important;
+                padding: 15px 12mm !important;
+                font-size: 0.85em !important;
+                border-top: 1px solid #e5e7eb !important;
+            }}
         }}
     </style>
 </head>
 
 <body>
+    <!-- Success Banner -->
+    <div id="successBanner" class="success-banner">
+        <div class="banner-content">
+            <span class="banner-icon">✓</span>
+            <span id="bannerText" class="banner-text"></span>
+            <button onclick="closeBanner()" class="banner-close">×</button>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
+            <div class="header-actions">
+                <button class="btn-download" onclick="downloadPDF()">
+                    📄 Save as PDF
+                </button>
+            </div>
             <h1>
                 TestGen-AI Test Report
                 {language_badge}
             </h1>
             <div class="timestamp">Generated: {results.timestamp.strftime('%Y-%m-%d %H:%M:%S')}</div>
             <div>
-                <span class="status-badge">{status_text}</span>
+                <span class="status-badge {badge_class}">{status_text}</span>
             </div>
         </div>
 
@@ -600,7 +1331,7 @@ class ReportGenerator:
 
                 <div class="summary-card duration">
                     <h3>Duration</h3>
-                    <div class="value">{results.duration:.2f}s</div>
+                    <div class="value">{results.duration:.3f}s</div>
                 </div>
 
                 <div class="summary-card rate">
@@ -621,19 +1352,60 @@ class ReportGenerator:
                         <h3>Success Rate</h3>
                         <canvas id="successRateChart"></canvas>
                     </div>
+                    <div class="chart-wrapper" id="langChartWrapper">
+                        <h3>Results by Language</h3>
+                        <canvas id="languageChart"></canvas>
+                    </div>
                 </div>
             </div>
 
             <div class="results-section">
                 <h2>Test Results</h2>
-                <table>
+                
+                <!-- Filters Section -->
+                <div class="filters-section">
+                    <h3>🔍 Filters & Search</h3>
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label for="statusFilter">Status:</label>
+                            <select id="statusFilter">
+                                <option value="all">All Statuses</option>
+                                <option value="PASS">Passed</option>
+                                <option value="FAIL">Failed</option>
+                                <option value="SKIP">Skipped</option>
+                                <option value="ERROR">Error</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="languageFilter">Language:</label>
+                            <select id="languageFilter">
+                                <option value="all">All Languages</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="minDuration">Min Duration (ns):</label>
+                            <input type="number" id="minDuration" placeholder="0" step="1" min="0">
+                        </div>
+                        <div class="filter-group">
+                            <label for="maxDuration">Max Duration (ns):</label>
+                            <input type="number" id="maxDuration" placeholder="No limit" step="1" min="0">
+                        </div>
+                    </div>
+                    <div class="filter-actions" style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                        <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+                        <div class="filter-info" id="filterInfo"></div>
+                    </div>
+                </div>
+
+                <table id="resultsTable">
                     <thead>
                         <tr>
-                            <th>#</th>
-                            <th>Language</th>
+                            <th onclick="sortTable(0)" style="cursor: pointer;">#</th>
+                            <th onclick="sortTable(1)" style="cursor: pointer;">Language</th>
                             <th>Test Name</th>
-                            <th>Status</th>
-                            <th>Duration</th>
+                            <th onclick="sortTable(3)" style="cursor: pointer;">Status</th>
+                            <th onclick="sortTable(4)" style="cursor: pointer;">Duration</th>
                             <th>Details</th>
                         </tr>
                     </thead>
@@ -659,11 +1431,23 @@ class ReportGenerator:
         // Data from Python
         const chartData = {chart_data_json};
 
-        // --- CHART CONFIGURATION ---
-        Chart.defaults.font.family = "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif";
-        Chart.defaults.color = '#666';
+        // Populate language filter
+        const languageFilter = document.getElementById('languageFilter');
+        const languages = Object.keys(chartData.languages || {{}});
+        languages.forEach(lang => {{
+            const option = document.createElement('option');
+            option.value = lang;
+            option.textContent = lang.toUpperCase();
+            languageFilter.appendChild(option);
+        }});
 
-        // 1. Result Distribution Chart (Doughnut)
+        // --- CHART CONFIGURATION (Softer colors) ---
+        if (typeof Chart !== 'undefined') {{
+            Chart.defaults.font.family = "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif";
+            Chart.defaults.color = '#6b7280';
+        }}
+
+        // 1. Result Distribution Chart (Doughnut) - Softer colors
         const resultsCtx = document.getElementById('resultsChart');
         if (resultsCtx && chartData.total > 0) {{
             new Chart(resultsCtx, {{
@@ -672,23 +1456,24 @@ class ReportGenerator:
                     labels: ['Passed', 'Failed', 'Skipped'],
                     datasets: [{{
                         data: [chartData.passed, chartData.failed, chartData.skipped],
-                        backgroundColor: ['#2eea95', '#ff5f57', '#ffbd2e'], // Mac-styleTraffic light colors
-                        borderWidth: 0,
+                        backgroundColor: ['#86efac', '#fca5a5', '#fde68a'],
+                        borderWidth: 1,
+                        borderColor: ['#22c55e', '#ef4444', '#f59e0b'],
                         hoverOffset: 4
                     }}]
                 }},
                 options: {{
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '70%',
+                    cutout: '65%',
                     plugins: {{
-                        legend: {{ position: 'bottom', labels: {{ padding: 20 }} }}
+                        legend: {{ position: 'bottom', labels: {{ padding: 15, font: {{ size: 12 }} }} }}
                     }}
                 }}
             }});
         }}
 
-        // 2. Success Rate Chart (Bar - Horizontal)
+        // 2. Success Rate Chart (Bar - Horizontal) - Softer colors
         const successCtx = document.getElementById('successRateChart');
         if (successCtx && chartData.total > 0) {{
             const successRate = (chartData.passed / chartData.total) * 100;
@@ -696,20 +1481,24 @@ class ReportGenerator:
             
             new Chart(successCtx, {{
                 type: 'bar',
-                indexAxis: 'y', // Horizontal bar
+                indexAxis: 'y',
                 data: {{
                     labels: ['Success Rate'],
                     datasets: [
                         {{
                             label: 'Success',
                             data: [successRate],
-                            backgroundColor: '#2eea95',
+                            backgroundColor: '#86efac',
+                            borderColor: '#22c55e',
+                            borderWidth: 1,
                             barThickness: 30
                         }},
                         {{
                             label: 'Failure',
                             data: [failureRate],
-                            backgroundColor: '#ff5f57',
+                            backgroundColor: '#fca5a5',
+                            borderColor: '#ef4444',
+                            borderWidth: 1,
                             barThickness: 30
                         }}
                     ]
@@ -721,47 +1510,195 @@ class ReportGenerator:
                         x: {{ stacked: true, max: 100, grid: {{ display: false }} }},
                         y: {{ stacked: true, grid: {{ display: false }} }}
                     }},
-                    plugins: {{ legend: {{ display: false }} }}
+                    plugins: {{ legend: {{ display: true, position: 'bottom', labels: {{ padding: 10, font: {{ size: 11 }} }} }} }}
                 }}
             }});
         }}
 
-        // --- TABLE SORTING ---
-        document.querySelectorAll('th').forEach(header => {{
-            header.style.cursor = 'pointer';
-            header.addEventListener('click', () => {{
-                const table = header.closest('table');
-                const tbody = table.querySelector('tbody');
-                const rows = Array.from(tbody.querySelectorAll('tr'));
-                const index = Array.from(header.parentElement.children).indexOf(header);
-                const isAscending = header.dataset.order === 'asc';
-                
-                // Reset other headers
-                document.querySelectorAll('th').forEach(th => th.dataset.order = '');
-                header.dataset.order = isAscending ? 'desc' : 'asc';
-
-                rows.sort((rowA, rowB) => {{
-                    const cellA = rowA.children[index].innerText.trim();
-                    const cellB = rowB.children[index].innerText.trim();
-
-                    // Compare numbers (Duration)
-                    if (index === 4) {{ // Duration column
-                        const numA = parseFloat(cellA.replace('s', ''));
-                        const numB = parseFloat(cellB.replace('s', ''));
-                        return isAscending ? numA - numB : numB - numA;
+        // 3. Language-wise Chart (Grouped Bar) - NEW
+        const langCtx = document.getElementById('languageChart');
+        if (langCtx && Object.keys(chartData.languages || {{}}).length > 0) {{
+            const langData = chartData.languages;
+            const langLabels = Object.keys(langData).map(l => l.toUpperCase());
+            const passedData = Object.values(langData).map(d => d.passed);
+            const failedData = Object.values(langData).map(d => d.failed);
+            const skippedData = Object.values(langData).map(d => d.skipped);
+            
+            new Chart(langCtx, {{
+                type: 'bar',
+                data: {{
+                    labels: langLabels,
+                    datasets: [
+                        {{
+                            label: 'Passed',
+                            data: passedData,
+                            backgroundColor: '#86efac',
+                            borderColor: '#22c55e',
+                            borderWidth: 1
+                        }},
+                        {{
+                            label: 'Failed',
+                            data: failedData,
+                            backgroundColor: '#fca5a5',
+                            borderColor: '#ef4444',
+                            borderWidth: 1
+                        }},
+                        {{
+                            label: 'Skipped',
+                            data: skippedData,
+                            backgroundColor: '#fde68a',
+                            borderColor: '#f59e0b',
+                            borderWidth: 1
+                        }}
+                    ]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {{
+                        y: {{ beginAtZero: true, grid: {{ color: '#f3f4f6' }} }},
+                        x: {{ grid: {{ display: false }} }}
+                    }},
+                    plugins: {{ 
+                        legend: {{ position: 'bottom', labels: {{ padding: 10, font: {{ size: 11 }} }} }} 
                     }}
-                    
-                    // Compare text (Name, Status, Language)
-                    return isAscending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
-                }});
-
-                tbody.append(...rows);
-                
-                // Visual feedback (Arrow)
-                header.textContent = header.textContent.replace(' ▲', '').replace(' ▼', '');
-                header.textContent += isAscending ? ' ▼' : ' ▲';
+                }}
             }});
-        }});
+        }} else {{
+            document.getElementById('langChartWrapper').style.display = 'none';
+        }}
+
+        // --- TABLE FILTERING & SORTING ---
+        let sortDirection = {{}};
+
+        function sortTable(columnIndex) {{
+            const table = document.getElementById('resultsTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            const isAscending = sortDirection[columnIndex] !== 'asc';
+            sortDirection[columnIndex] = isAscending ? 'asc' : 'desc';
+
+            rows.sort((rowA, rowB) => {{
+                let cellA = rowA.children[columnIndex].innerText.trim();
+                let cellB = rowB.children[columnIndex].innerText.trim();
+
+                // Duration column (numeric)
+                if (columnIndex === 4) {{
+                    const numA = parseFloat(rowA.dataset.duration);
+                    const numB = parseFloat(rowB.dataset.duration);
+                    return isAscending ? numA - numB : numB - numA;
+                }}
+                
+                // Index column (numeric)
+                if (columnIndex === 0) {{
+                    const numA = parseInt(cellA);
+                    const numB = parseInt(cellB);
+                    return isAscending ? numA - numB : numB - numA;
+                }}
+                
+                // Text columns
+                return isAscending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+            }});
+
+            tbody.append(...rows);
+        }}
+
+        function applyFilters() {{
+            const statusFilter = document.getElementById('statusFilter').value;
+            const languageFilter = document.getElementById('languageFilter').value;
+            const minDuration = parseFloat(document.getElementById('minDuration').value) || 0;
+            const maxDuration = parseFloat(document.getElementById('maxDuration').value) || Infinity;
+
+            const table = document.getElementById('resultsTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            let visibleCount = 0;
+            
+            rows.forEach(row => {{
+                if (!row.dataset.status) return; // Skip header/empty rows
+                
+                const rowStatus = row.dataset.status;
+                const rowLanguage = row.dataset.language;
+                const rowDuration = parseFloat(row.dataset.duration);
+                
+                const statusMatch = (statusFilter === 'all' || rowStatus === statusFilter);
+                const languageMatch = (languageFilter === 'all' || rowLanguage === languageFilter);
+                const durationMatch = (rowDuration >= minDuration && rowDuration <= maxDuration);
+                
+                if (statusMatch && languageMatch && durationMatch) {{
+                    row.style.display = '';
+                    visibleCount++;
+                }} else {{
+                    row.style.display = 'none';
+                }}
+            }});
+
+            document.getElementById('filterInfo').textContent = 
+                `Showing ${{visibleCount}} of ${{rows.length}} tests`;
+        }}
+
+        function resetFilters() {{
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('languageFilter').value = 'all';
+            document.getElementById('minDuration').value = '';
+            document.getElementById('maxDuration').value = '';
+            applyFilters();
+        }}
+
+        // Helper functions
+        function closeBanner() {{
+            document.getElementById('successBanner').classList.remove('show');
+        }}
+
+        function showBanner(filename) {{
+            const banner = document.getElementById('successBanner');
+            const bannerText = document.getElementById('bannerText');
+            
+            // Get the current page location to determine report directory
+            const currentPath = window.location.pathname;
+            const reportDir = currentPath.substring(0, currentPath.lastIndexOf('/'));
+            const reportPath = reportDir.replace(/^.*[\\/]TestGen-AI/, 'TestGen-AI');
+            
+            bannerText.innerHTML = `Suggested filename: <strong>${{filename}}</strong> • Save location: Your downloads folder • Report: ${{reportPath}}`;
+            banner.classList.add('show');
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {{
+                closeBanner();
+            }}, 10000);
+        }}
+
+        // --- PDF DOWNLOAD FUNCTION ---
+        function downloadPDF() {{
+            // Get IST timestamp for suggested filename
+            const now = new Date();
+            const istOffset = 5.5 * 60 * 60 * 1000;
+            const istDate = new Date(now.getTime() + istOffset);
+            
+            const year = istDate.getUTCFullYear();
+            const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(istDate.getUTCDate()).padStart(2, '0');
+            const hour = String(istDate.getUTCHours()).padStart(2, '0');
+            const minute = String(istDate.getUTCMinutes()).padStart(2, '0');
+            const second = String(istDate.getUTCSeconds()).padStart(2, '0');
+            
+            const suggestedFilename = `TestGen-AI_Report_${{year}}-${{month}}-${{day}}_${{hour}}-${{minute}}-${{second}}.pdf`;
+            
+            // Set document title (used as default filename in most browsers)
+            const originalTitle = document.title;
+            document.title = suggestedFilename.replace('.pdf', '');
+            
+            // Trigger browser print dialog
+            window.print();
+            
+            // Restore title after print dialog closes
+            document.title = originalTitle;
+        }}
+
+        // Initialize
+        resetFilters();
     </script>
 </body>
 </html>
@@ -1155,7 +2092,8 @@ class ReportGenerator:
         output_path: str
     ) -> str:
         """
-        Generate a PDF report from test execution results using reportlab.
+        Generate a PDF report from test execution results by converting HTML to PDF.
+        This preserves all the beautiful styling from the HTML report.
 
         Args:
             results: ExecutionSummary containing test results
@@ -1164,199 +2102,53 @@ class ReportGenerator:
         Returns:
             Path to the generated PDF report
         """
-        try:
-            from reportlab.lib.pagesizes import A4
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import cm
-            from reportlab.lib import colors
-            from reportlab.platypus import (
-                SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-            )
-            from reportlab.lib.enums import TA_CENTER, TA_LEFT
-        except ImportError:
-            raise ImportError(
-                "reportlab is required for PDF generation. "
-                "Install it with: pip install reportlab"
-            )
-
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
-
-        doc = SimpleDocTemplate(
-            str(output_file),
-            pagesize=A4,
-            rightMargin=2 * cm,
-            leftMargin=2 * cm,
-            topMargin=2 * cm,
-            bottomMargin=2 * cm,
-        )
-
-        styles = getSampleStyleSheet()
-
-        title_style = ParagraphStyle(
-            'TGTitle',
-            parent=styles['Heading1'],
-            fontSize=22,
-            spaceAfter=6,
-            textColor=colors.HexColor('#1f2937'),
-            alignment=TA_LEFT,
-        )
-        subtitle_style = ParagraphStyle(
-            'TGSubtitle',
-            parent=styles['Normal'],
-            fontSize=10,
-            textColor=colors.HexColor('#6b7280'),
-            spaceAfter=4,
-        )
-        section_style = ParagraphStyle(
-            'TGSection',
-            parent=styles['Heading2'],
-            fontSize=13,
-            spaceBefore=18,
-            spaceAfter=8,
-            textColor=colors.HexColor('#1e40af'),
-        )
-        body_style = styles['BodyText']
-
-        # Determine status colour
-        if results.failed > 0:
-            status_color = colors.HexColor('#dc2626')
-            status_text = 'FAILED'
-        elif results.passed == results.total and results.total > 0:
-            status_color = colors.HexColor('#16a34a')
-            status_text = 'PASSED'
-        elif results.total == 0:
-            status_color = colors.HexColor('#6b7280')
-            status_text = 'NO TESTS'
-        else:
-            status_color = colors.HexColor('#d97706')
-            status_text = 'PARTIAL'
-
-        story = []
-
-        # ── Header ────────────────────────────────────────────────────
-        story.append(Paragraph(f"🧪 {results.project_name}", title_style))
-        story.append(Paragraph(
-            f"Generated: {results.timestamp.strftime('%Y-%m-%d %H:%M:%S')}   |   "
-            f"Language: {(results.language or 'Python').upper()}",
-            subtitle_style
-        ))
-
-        # Status badge (coloured table cell)
-        status_data = [[Paragraph(f'<b>{status_text}</b>', ParagraphStyle(
-            'badge', parent=styles['Normal'], textColor=colors.white,
-            alignment=TA_CENTER, fontSize=11
-        ))]]
-        status_table = Table(status_data, colWidths=[5 * cm], rowHeights=[1.1 * cm])
-        status_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), status_color),
-            ('ROUNDEDCORNERS', [6]),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        story.append(Spacer(1, 0.3 * cm))
-        story.append(status_table)
-        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e5e7eb'), spaceAfter=10))
-
-        # ── Summary Table ─────────────────────────────────────────────
-        story.append(Paragraph("Summary", section_style))
-
-        summary_data = [
-            ['Metric', 'Value'],
-            ['Total Tests', str(results.total)],
-            ['Passed', str(results.passed)],
-            ['Failed', str(results.failed)],
-            ['Skipped', str(results.skipped)],
-            ['Duration', f"{results.duration:.2f}s"],
-            ['Success Rate', f"{results.success_rate:.1f}%"],
-        ]
-
-        summary_table = Table(summary_data, colWidths=[8 * cm, 8 * cm])
-        summary_table.setStyle(TableStyle([
-            # Header row
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 11),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#f9fafb'), colors.white]),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
-            ('LEFTPADDING', (0, 0), (-1, -1), 10),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 7),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-            # Colour the value cells for failed/passed rows
-            ('TEXTCOLOR', (1, 3), (1, 3), colors.HexColor('#dc2626')),  # failed value
-            ('TEXTCOLOR', (1, 2), (1, 2), colors.HexColor('#16a34a')),  # passed value
-            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
-        ]))
-        story.append(summary_table)
-
-        # ── Test Results Table ─────────────────────────────────────────
-        if results.results:
-            story.append(Paragraph("Test Results", section_style))
-
-            results_data = [['#', 'Test Name', 'Status', 'Duration']]
-            for i, test in enumerate(results.results, 1):
-                status = test.get('status', 'UNKNOWN')
-                name = test.get('test_name', 'Unknown')
-                duration = test.get('duration', 0.0)
-                results_data.append([str(i), name, status, f"{duration:.3f}s"])
-
-            # Build per-row colours for status column
-            style_cmds = [
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('ALIGN', (2, 0), (2, -1), 'CENTER'),
-                ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#f9fafb'), colors.white]),
-                ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#e5e7eb')),
-                ('LEFTPADDING', (0, 0), (-1, -1), 8),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ]
-            for i, test in enumerate(results.results, 1):
-                st = test.get('status', 'UNKNOWN')
-                if st == 'PASS':
-                    c = colors.HexColor('#16a34a')
-                elif st == 'FAIL':
-                    c = colors.HexColor('#dc2626')
-                elif st == 'SKIP':
-                    c = colors.HexColor('#d97706')
-                else:
-                    c = colors.HexColor('#6b7280')
-                style_cmds.append(('TEXTCOLOR', (2, i), (2, i), c))
-                style_cmds.append(('FONTNAME', (2, i), (2, i), 'Helvetica-Bold'))
-
-            results_table = Table(
-                results_data,
-                colWidths=[1.2 * cm, 10.5 * cm, 2.5 * cm, 2.8 * cm],
-                repeatRows=1,
-            )
-            results_table.setStyle(TableStyle(style_cmds))
-            story.append(results_table)
-        else:
-            story.append(Spacer(1, 0.5 * cm))
-            story.append(Paragraph("No individual test results recorded.", body_style))
-
-        # ── Footer ─────────────────────────────────────────────────────
-        story.append(Spacer(1, 1 * cm))
-        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#d1d5db')))
-        story.append(Spacer(1, 0.2 * cm))
-        story.append(Paragraph(
-            "Generated by <b>TestGen AI</b> — The Autonomous QA Agent",
-            ParagraphStyle('footer', parent=styles['Normal'], fontSize=8,
-                           textColor=colors.HexColor('#9ca3af'), alignment=TA_CENTER)
-        ))
-
-        doc.build(story)
-        return str(output_file.absolute())
-
+        
+        # Try weasyprint first (best option - preserves HTML/CSS perfectly)
+        try:
+            from weasyprint import HTML
+            
+            # Generate HTML content first
+            html_content = self._generate_html_content(results)
+            
+            # Convert HTML to PDF
+            HTML(string=html_content).write_pdf(str(output_file))
+            
+            return str(output_file)
+            
+        except ImportError:
+            # Fallback: Try pdfkit (requires wkhtmltopdf installed)
+            try:
+                import pdfkit
+                
+                # Generate HTML content
+                html_content = self._generate_html_content(results)
+                
+                # Write to temp HTML file
+                temp_html = output_file.with_suffix('.tmp.html')
+                temp_html.write_text(html_content, encoding='utf-8')
+                
+                # Convert HTML to PDF
+                pdfkit.from_file(str(temp_html), str(output_file))
+                
+                # Clean up temp file
+                temp_html.unlink()
+                
+                return str(output_file)
+                
+            except ImportError:
+                # Final fallback: Generate HTML report with print-friendly CSS
+                # User can use browser's print-to-PDF feature
+                html_path = output_file.with_suffix('.html')
+                self.generate_html(results, str(html_path))
+                
+                raise ImportError(
+                    "PDF generation requires either 'weasyprint' or 'pdfkit'.\n"
+                    f"Install with: pip install weasyprint\n"
+                    f"Or use your browser to print the HTML report to PDF: {html_path}\n"
+                    "The HTML report has been saved and optimized for PDF printing."
+                )
 
     def save_history(
         self,
