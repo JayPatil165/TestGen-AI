@@ -200,4 +200,3 @@ testgen setup
 - **Windows users:** Try `testgen setup` first (with Admin terminal)
 - **All users:** `python -m testgen` always works instantly
 - **Using a venv:** Just activate it with `source testgen-env/bin/activate` (or `testgen-env\Scripts\activate` on Windows)
-

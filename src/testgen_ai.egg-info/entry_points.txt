@@ -1,2 +1,2 @@
 [console_scripts]
-testgen = testgen.main:app
+testgen = testgen.cli:main

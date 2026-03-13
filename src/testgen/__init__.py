@@ -28,22 +28,85 @@ TestGen AI - Autonomous QA Agent
 
 Main Features:
 - 🤖 AI-powered test generation using LLMs (OpenAI, Claude, Ollama)
-- 📊 Beautiful terminal dashboard with Rich
-- 👀 Watch mode for real-time TDD
-- 📈 HTML/PDF report generation
-- ⚡ Smart context extraction to minimize costs
-- 🎯 Support for pytest and Playwright
-
-Quick Start:
-    >>> from testgen import config
-    >>> config.llm_provider
-    'openai'
-
-For CLI usage:
-    $ testgen generate ./src
-    $ testgen test
-    $ testgen report
-    $ testgen auto ./src
-
-See documentation at: https://github.com/JayPatil165/TestGen-AI
+- 🌍 14+ languages supported
+- 👀 Watch mode for real-time test generation
+- 📊 Terminal dashboards and HTML reports
 """
+
+
+def _ensure_in_path() -> None:
+    """
+    One-time initialization: Try to add testgen Scripts folder to PATH on Windows.
+    This runs silently on import and only attempts once per installation.
+    Does nothing on macOS/Linux (not needed there).
+    """
+    import platform
+    import sys
+    from pathlib import Path
+    
+    # Only attempt on Windows
+    if platform.system() != "Windows":
+        return
+    
+    # Check if already in PATH
+    try:
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "-c", "import shutil; shutil.which('testgen')"],
+            capture_output=True,
+            timeout=2
+        )
+        if result.returncode == 0:
+            return  # Already in PATH
+    except Exception:
+        pass
+    
+    # Try to add to PATH via registry
+    try:
+        import winreg
+        
+        scripts_path = None
+        # Try to find Scripts folder
+        candidate = Path(sys.executable).parent / "Scripts"
+        if candidate.exists():
+            scripts_path = str(candidate)
+        
+        if not scripts_path:
+            candidate = Path(sys.prefix) / "Scripts"
+            if candidate.exists():
+                scripts_path = str(candidate)
+        
+        if scripts_path:
+            key_path = r"Environment"
+            try:
+                reg_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path)
+            except FileNotFoundError:
+                reg_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+            
+            try:
+                path_value = winreg.QueryValueEx(reg_key, "Path")[0]
+            except FileNotFoundError:
+                path_value = ""
+            
+            # Check if already in PATH
+            if path_value and scripts_path.lower() not in path_value.lower():
+                # Add to PATH
+                new_path = f"{path_value};{scripts_path}" if path_value else scripts_path
+                try:
+                    winreg.SetValueEx(reg_key, "Path", 0, winreg.REG_EXPAND_SZ, new_path)
+                except PermissionError:
+                    # Silently fail if no admin access - user can run testgen setup manually
+                    pass
+            
+            winreg.CloseKey(reg_key)
+    except Exception:
+        # Silently fail - this is not critical, user can run testgen setup manually
+        pass
+
+
+# Auto-setup on import (silent, non-blocking)
+try:
+    _ensure_in_path()
+except Exception:
+    pass  # Never crash on startup for any reason
+

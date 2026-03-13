@@ -1,7 +1,9 @@
 README.md
 pyproject.toml
+setup.py
 src/testgen/__init__.py
 src/testgen/__main__.py
+src/testgen/cli.py
 src/testgen/config.py
 src/testgen/main.py
 src/testgen/manager.py

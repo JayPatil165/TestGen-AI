@@ -68,7 +68,7 @@ Issues = "https://github.com/JayPatil165/TestGen-AI/issues"
 Documentation = "https://JayPatil165.github.io/TestGen-AI/"
 
 [project.scripts]
-testgen = "testgen.main:app"
+testgen = "testgen.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
