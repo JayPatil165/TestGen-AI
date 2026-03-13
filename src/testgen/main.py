@@ -327,8 +327,10 @@ def generate(
         
         # Success message
         console.print("\n[green]✅ Test generation completed![/green]")
-        console.print(f"[green]Generated {result.get('tests_generated', 0)} test files[/green]")
-        console.print(f"[dim]Output directory: {output_dir}[/dim]")
+        console.print(f"[green]📁 Generated {result.get('tests_generated', 0)} test files[/green]")
+        console.print(f"[green]💾 Saved to:[/green]")
+        console.print(f"   [link=file://{output_dir.absolute()}]{output_dir.absolute()}[/link]")
+        console.print("[dim]  💡 Use [cyan bold]testgen test[/cyan bold] to run the tests[/dim]")
         console.print("[dim]  💡 Use [cyan bold]testgen generate --help[/cyan bold] to see all available flags[/dim]")
 
         
@@ -582,6 +584,9 @@ def test(
         # Cache results for report generation (stored in <project>/TestGen-AI/.cache/)
         manager.cache_test_results(result, 'python')
         
+        # Get cache location for display
+        cache_dir = resolved_project_dir / "TestGen-AI" / ".cache"
+        
         # Display results
         console.print("\n[bold cyan]═══ Test Results ═══[/bold cyan]\n")
         console.print(f"  [bold]Total:[/bold]   {result.get('total', 0)}")
@@ -593,7 +598,9 @@ def test(
         
         # Success message
         console.print("\n[green]✅ Test execution completed![/green]")
-        console.print(f"[dim]💡 Run 'testgen report {resolved_project_dir}' to generate a report[/dim]")
+        console.print(f"[green]📊 Results cached at:[/green]")
+        console.print(f"   [link=file://{cache_dir.absolute()}]{cache_dir.absolute()}[/link]")
+        console.print(f"[dim]💡 Run 'testgen report {resolved_project_dir}' to generate an HTML report[/dim]")
         console.print("[dim]  💡 Use [cyan bold]testgen test --help[/cyan bold] to see all available flags[/dim]")
         
     except Exception as e:
@@ -893,6 +900,15 @@ def auto(
             title="✅ Workflow Complete",
             border_style="green"
         ))
+        
+        # Show file locations
+        test_dir = target_directory / "TestGen-AI" / "tests"
+        console.print("\n[green]📁 Generated files:[/green]")
+        console.print(f"   [link=file://{test_dir.absolute()}]Tests: {test_dir.absolute()}[/link]")
+        
+        if not skip_report:
+            report_dir = target_directory / "TestGen-AI" / "reports"
+            console.print(f"   [link=file://{report_dir.absolute()}]Reports: {report_dir.absolute()}[/link]")
         
         console.print("\n[bold green]Success![/bold green] Your autonomous QA agent has completed all tasks.")
         console.print("[dim]  💡 Use [cyan bold]testgen auto --help[/cyan bold] to see all available flags[/dim]")
