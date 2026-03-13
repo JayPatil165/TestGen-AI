@@ -24,15 +24,11 @@ source testgen-env/bin/activate
 
 # Install
 pip install testgen-ai
-
-# ONE-TIME SETUP (this is important!)
-testgen setup
 ```
 
 Or install globally:
 ```bash
 pip install testgen-ai
-testgen setup
 ```
 
 Verify:
@@ -41,7 +37,7 @@ Verify:
 testgen --version
 ```
 
-> **The setup command** handles platform-specific configuration (especially on Windows where it automatically adds Python to PATH). Run it once after installation — you can safely run it multiple times without issues.
+That's it! Everything is configured automatically. On Windows, the first run will set up your system PATH automatically.
 
 ---
 
