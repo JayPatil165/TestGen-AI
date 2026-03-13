@@ -9,17 +9,53 @@ That's it.
 
 ## Install
 
+### Recommended: Use a Virtual Environment
+
+```bash
+# Create a virtual environment (one-time)
+python -m venv testgen-env
+
+# Activate it
+# On Windows:
+testgen-env\Scripts\activate
+# On macOS/Linux:
+source testgen-env/bin/activate
+
+# Install the package
+pip install testgen-ai
+
+# ONE-TIME SETUP (especially important on Windows!)
+testgen setup
+```
+
+### Or Install Globally
+
 ```bash
 pip install testgen-ai
+
+# ONE-TIME SETUP (especially important on Windows!)
+testgen setup
 ```
 
 This single command installs **everything** — all required libraries (`litellm`, `pytest`, `typer`, `rich`, `pydantic`, `watchdog`, and more) come bundled. Nothing else to install.
 
-Verify:
+> **The `testgen setup` command:**
+> - On **Windows**: Automatically adds Python's Scripts folder to your system PATH so the `testgen` command works in any terminal
+> - On **macOS/Linux**: Verifies the command is accessible and provides troubleshooting tips if needed
+> - **You only need to run this once** — it's a one-time setup after installation
+> - On Windows, you may need to **restart your terminal** after running setup
+
+## Verify Installation
 
 ```bash
 testgen --version
 ```
+
+You should see the version number printed. If you get a command not found error:
+
+1. **Make sure you ran `testgen setup`** (especially on Windows)
+2. **Restart your terminal**
+3. If still not working, see the [troubleshooting section](#troubleshooting) below.
 
 ---
 
@@ -92,3 +128,76 @@ playwright install                 # downloads browser binaries (one-time per ma
 ```
 
 The second step (`playwright install`) downloads Chromium/Firefox/WebKit binaries. This can't be automated by pip — it's a one-time manual step. For pure unit testing of Python code, you don't need this at all.
+
+---
+
+## Troubleshooting
+
+### "`testgen` command not found" / "`testgen is not recognized`"
+
+**Easy fix:** Make sure you ran `testgen setup` after installation, then restart your terminal.
+
+If that doesn't work, try these options:
+
+**Option 1: Run setup as Administrator (Windows)**
+
+The `testgen setup` command needs administrator access to modify Windows PATH. Try running your terminal as Administrator:
+
+1. Right-click Command Prompt or PowerShell → **Run as administrator**
+2. Run `testgen setup` again
+3. Restart your terminal
+4. Test with `testgen --version`
+
+**Option 2: Use via Python module (always works, no setup needed)**
+
+```bash
+python -m testgen generate ./src
+python -m testgen config show
+python -m testgen --version
+```
+
+This bypasses PATH entirely and works on any platform.
+
+**Option 3: Manually add to PATH (Windows)**
+
+If you can't run as admin, manually add the Scripts folder:
+
+```bash
+# First, find your Scripts folder:
+python -c "import sys; print(sys.prefix)"
+
+# Add this result + \Scripts to your Windows PATH:
+# 1. Press Win + X → click System
+# 2. Click Advanced system settings → Environment Variables
+# 3. Under User variables, find Path → Edit
+# 4. Click New and paste: C:\Python313\Scripts (or your result from above)
+# 5. Click OK three times, restart terminal
+```
+
+**Option 4: Activate your virtual environment (if using a venv)**
+
+```bash
+# Windows:
+testgen-env\Scripts\activate
+
+# macOS/Linux:
+source testgen-env/bin/activate
+
+# Now testgen will work
+testgen --version
+```
+
+**Option 5: Reinstall fresh**
+
+```bash
+pip uninstall testgen-ai
+pip install testgen-ai
+testgen setup
+```
+
+### Which option should I use?
+
+- **Windows users:** Try `testgen setup` first (with Admin terminal)
+- **All users:** `python -m testgen` always works instantly
+- **Using a venv:** Just activate it with `source testgen-env/bin/activate` (or `testgen-env\Scripts\activate` on Windows)
+

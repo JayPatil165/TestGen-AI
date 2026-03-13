@@ -13,8 +13,26 @@ TestGen AI is a CLI tool that automatically generates, runs, and reports on test
 
 ## 📦 Installation
 
+**Recommended:** Use a virtual environment:
+```bash
+python -m venv testgen-env
+# Activate it:
+# Windows:
+testgen-env\Scripts\activate
+# macOS/Linux:
+source testgen-env/bin/activate
+
+# Install
+pip install testgen-ai
+
+# ONE-TIME SETUP (this is important!)
+testgen setup
+```
+
+Or install globally:
 ```bash
 pip install testgen-ai
+testgen setup
 ```
 
 Verify:
@@ -22,6 +40,8 @@ Verify:
 ```bash
 testgen --version
 ```
+
+> **The setup command** handles platform-specific configuration (especially on Windows where it automatically adds Python to PATH). Run it once after installation — you can safely run it multiple times without issues.
 
 ---
 

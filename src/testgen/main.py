@@ -910,6 +910,168 @@ def auto(
         raise typer.Exit(1)
 
 
+# ── Setup command ────────────────────────────────────────────────────────────
+
+@app.command()
+def setup():
+    """
+    One-time setup to ensure testgen command is accessible from anywhere.
+
+    On Windows, this adds Python's Scripts folder to your system PATH so
+    the 'testgen' command works in any terminal. On macOS/Linux, it verifies
+    the command is already accessible.
+
+    This command needs to run once after installation. On Windows, you may
+    need to restart your terminal after completion.
+    """
+    import platform
+    import subprocess
+    import winreg
+    
+    system = platform.system()
+    
+    console.print(Panel.fit(
+        f"[bold cyan]TestGen AI — Setup[/bold cyan]\n"
+        f"Platform: [yellow]{system}[/yellow]",
+        title="🔧 Setup",
+        border_style="cyan"
+    ))
+    console.print()
+    
+    # Find the Scripts folder (where testgen.exe is installed)
+    scripts_path = None
+    
+    # Try multiple methods to find Scripts folder
+    methods = [
+        # Method 1: Check where the Python executable is
+        lambda: Path(sys.executable).parent / "Scripts" if Path(sys.executable).parent else None,
+        # Method 2: Use site module
+        lambda: Path(sys.prefix) / "Scripts" if sys.prefix else None,
+        # Method 3: Try to run Python with site module
+        lambda: _try_get_scripts_from_subprocess(),
+    ]
+    
+    for method in methods:
+        try:
+            candidate = method()
+            if candidate and Path(candidate).exists():
+                scripts_path = str(candidate)
+                break
+        except Exception:
+            continue
+    
+    # Check if testgen command is accessible
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "testgen", "--version"],
+            capture_output=True,
+            timeout=5,
+            check=True
+        )
+        command_works = True
+    except Exception:
+        command_works = False
+    
+    if system == "Windows":
+        console.print("[bold]Windows Detected[/bold] — Adding Python Scripts folder to PATH...\n")
+        
+        if scripts_path and Path(scripts_path).exists():
+            console.print(f"[dim]Scripts folder found at:[/dim] {scripts_path}\n")
+            
+            try:
+                # Try to add to user PATH using winreg
+                key_path = r"Environment"
+                try:
+                    reg_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path)
+                except FileNotFoundError:
+                    reg_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+                
+                try:
+                    path_value = winreg.QueryValueEx(reg_key, "Path")[0]
+                except FileNotFoundError:
+                    path_value = ""
+                
+                # Check if already in PATH
+                if path_value and scripts_path.lower() in path_value.lower():
+                    console.print("[green]✅ Already in PATH[/green]\n")
+                    if command_works:
+                        console.print("[green]✔ testgen command is working![/green]")
+                    else:
+                        console.print("[yellow]⚠️  Restart terminal, then verify with: testgen --version[/yellow]")
+                else:
+                    # Add to PATH
+                    if path_value:
+                        new_path = f"{path_value};{scripts_path}"
+                    else:
+                        new_path = scripts_path
+                    
+                    winreg.SetValueEx(reg_key, "Path", 0, winreg.REG_EXPAND_SZ, new_path)
+                    winreg.CloseKey(reg_key)
+                    
+                    console.print("[green]✅ SUCCESS[/green] — Added to PATH\n")
+                    console.print("[bold cyan]⚠️  Please restart your terminal for changes to take effect.[/bold cyan]\n")
+                    console.print("Then verify with:")
+                    console.print("  [cyan]testgen --version[/cyan]\n")
+                        
+            except PermissionError:
+                console.print("[red]❌ Permission denied[/red] — Administrator access required\n")
+                console.print("[bold]Try one of these:[/bold]")
+                console.print(f"  1. Run terminal as Administrator and re-run [cyan]testgen setup[/cyan]")
+                console.print(f"  2. Or manually add this folder to Windows PATH:")
+                console.print(f"     [cyan]{scripts_path}[/cyan]")
+                console.print(f"  3. Or use [cyan]python -m testgen[/cyan] instead (always works)")
+                
+            except Exception as e:
+                console.print(f"[red]❌ Could not auto-configure PATH:[/red] {e}\n")
+                console.print("[bold]Manual setup required:[/bold]")
+                console.print(f"  1. Add this folder to your Windows PATH:\n     [cyan]{scripts_path}[/cyan]")
+                console.print("  2. Restart your terminal")
+                console.print("  3. Verify with: [cyan]testgen --version[/cyan]")
+        else:
+            console.print("[red]❌ Could not find Python Scripts folder[/red]\n")
+            console.print("[bold]Workaround options:[/bold]")
+            console.print(f"  1. Use [cyan]python -m testgen[/cyan] — this always works")
+            console.print(f"  2. Or find the Scripts folder manually:")
+            console.print(f"     [cyan]python -c \"import sys; print(sys.prefix)\"[/cyan]")
+            console.print(f"     Then add [cyan]<result>/Scripts[/cyan] to your Windows PATH")
+    
+    else:
+        # macOS/Linux
+        console.print(f"[bold]{system} Detected[/bold]\n")
+        
+        if command_works:
+            console.print("[green]✅ testgen command is already working![/green]\n")
+            console.print("You're all set. Run [cyan]testgen generate --help[/cyan] to get started.")
+        else:
+            console.print("[cyan]Note:[/cyan] testgen command not directly accessible\n")
+            console.print("[bold]Options:[/bold]")
+            console.print(f"  1. Use [cyan]python -m testgen[/cyan] (always works)")
+            console.print(f"  2. Reinstall via your package manager or pip")
+    
+    console.print()
+
+
+def _try_get_scripts_from_subprocess() -> Optional[Path]:
+    """Helper: Try to get site.USER_SCRIPTS or similar."""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", "import site; print(site.USER_SITE)"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.stdout.strip():
+            site_path = result.stdout.strip()
+            scripts_path = Path(site_path).parent / "Scripts"
+            if scripts_path.exists():
+                return scripts_path
+    except Exception:
+        pass
+    return None
+
+
+
+
 # ── Config subcommand group ──────────────────────────────────────────────────
 
 config_app = typer.Typer(
