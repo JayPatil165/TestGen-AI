@@ -2117,7 +2117,33 @@ class ReportGenerator:
             
             return str(output_file)
             
-        except ImportError:
+        except (ImportError, OSError, Exception) as e:
+            # Check if it's a weasyprint-related issue (missing dependencies or import)
+            error_msg = str(e).lower()
+            is_weasy_error = (
+                'weasyprint' in error_msg 
+                or 'external libraries' in error_msg
+                or 'libgobject' in error_msg
+                or 'ctypes' in error_msg
+                or isinstance(e, OSError)
+            )
+            
+            if is_weasy_error:
+                # WeasyPrint is installed but has missing system dependencies
+                html_path = output_file.with_suffix('.html')
+                self.generate_html(results, str(html_path))
+                
+                raise ImportError(
+                    "⚠️  WeasyPrint is installed but missing system dependencies.\n\n"
+                    "To fix this, install the required system libraries:\n"
+                    "  Windows:  choco install weasyprint\n"
+                    "  macOS:    brew install libffi libjpeg libpng libtiff openjpeg\n"
+                    "  Ubuntu:   sudo apt-get install libffi-dev libjpeg-dev libpng-dev libtiff-dev libopenjp2-7-dev\n\n"
+                    "Or use your browser to print the HTML report to PDF:\n"
+                    f"  📄 HTML report: {html_path}\n\n"
+                    "For more details, see: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
+                ) from e
+            
             # Fallback: Try pdfkit (requires wkhtmltopdf installed)
             try:
                 import pdfkit
@@ -2144,11 +2170,14 @@ class ReportGenerator:
                 self.generate_html(results, str(html_path))
                 
                 raise ImportError(
-                    "PDF generation requires either 'weasyprint' or 'pdfkit'.\n"
-                    f"Install with: pip install weasyprint\n"
-                    f"Or use your browser to print the HTML report to PDF: {html_path}\n"
-                    "The HTML report has been saved and optimized for PDF printing."
-                )
+                    "PDF generation requires either 'weasyprint' or 'pdfkit'.\n\n"
+                    "Quick fix options:\n"
+                    "  1. Install weasyprint: pip install weasyprint\n"
+                    "  2. Install pdfkit: pip install pdfkit (also requires wkhtmltopdf)\n"
+                    "  3. Use HTML report: Open in browser and print to PDF\n\n"
+                    f"Your HTML report is ready: {html_path}\n"
+                    "For system dependencies, see: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
+                ) from e
 
     def save_history(
         self,

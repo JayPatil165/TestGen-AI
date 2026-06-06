@@ -6,6 +6,7 @@ All commands are defined here: generate, test, report, auto, and version.
 """
 
 import sys
+import platform
 import threading
 from pathlib import Path
 from typing import Optional
@@ -37,6 +38,35 @@ class GlobalState:
 state = GlobalState()
 
 
+def _get_platform_info() -> str:
+    """Get human-readable platform information.
+    
+    Returns proper Windows bit version instead of generic 'win32'.
+    """
+    if sys.platform == 'win32':
+        bits, _ = platform.architecture()
+        return f"Windows {bits}"
+    elif sys.platform == 'darwin':
+        return "macOS"
+    elif sys.platform == 'linux':
+        return "Linux"
+    else:
+        return platform.system()
+
+
+def _file_url(path: Path) -> str:
+    r"""Convert a Path to a clickable file:// URL that works on all platforms.
+    
+    On Windows, converts backslashes to forward slashes for proper URL format.
+    Example: C:\Users\test\file.txt -> file:///C:/Users/test/file.txt
+    """
+    abs_path = str(path.absolute()).replace('\\', '/')
+    # Add extra slash for Windows drive letters (C:/ -> /C:/)
+    if sys.platform == 'win32' and len(abs_path) > 1 and abs_path[1] == ':':
+        return f"file:///{abs_path}"
+    return f"file://{abs_path}"
+
+
 def _check_for_update() -> None:
     """Background thread: silently query PyPI and print a notice if a newer version exists."""
     try:
@@ -48,9 +78,9 @@ def _check_for_update() -> None:
         latest = data["info"]["version"]
         if latest != __version__:
             console.print(
-                f"[dim]⬆️  Update available: [bold]{latest}[/bold] "
-                f"(you have {__version__}) — "
-                f"run [cyan]pip install --upgrade testgen-ai[/cyan][/dim]"
+                f"[yellow]⬆️  Update available: [bold]{latest}[/bold] "
+                f"(you have {__version__})[/yellow]\n"
+                f"[cyan]→  pip install --upgrade testgen-ai[/cyan]"
             )
     except Exception:
         pass  # Never crash on update check failure
@@ -135,7 +165,7 @@ def _prompt_provider_if_multiple() -> None:
     console.print("\n[bold cyan]Multiple API keys detected.[/bold cyan] Which provider should be used?\n")
     for i, (pname, masked) in enumerate(available, 1):
         active = " [green](current)[/green]" if pname == config.llm_provider.value else ""
-        console.print(f"  [cyan]{i}.[/cyan] [bold]{pname.upper()}[/bold]  [dim]{masked}[/dim]{active}")
+        console.print(f"  [cyan]{i}.[/cyan] [bold]{pname.upper()}[/bold]  [yellow]{masked}[/yellow]{active}")
     console.print()
 
     default_idx = next(
@@ -165,8 +195,9 @@ def version_callback(value: bool):
         console.print(Panel.fit(
             f"[bold cyan]TestGen AI[/bold cyan]\n"
             f"Version: [green]{__version__}[/green]\n"
-            f"Python: [yellow]{sys.version.split()[0]}[/yellow]",
-            title="📦 Version Info",
+            f"Python:  [yellow]{sys.version.split()[0]}[/yellow]\n"
+            f"Platform: [magenta]{_get_platform_info()}[/magenta]",
+            title="📦 Version Information",
             border_style="cyan"
         ))
         raise typer.Exit()
@@ -229,9 +260,9 @@ def version():
     """
     console.print(Panel.fit(
         f"[bold cyan]TestGen AI[/bold cyan]\n"
-        f"Version: [green]{__version__}[/green]\n"
-        f"Python: [yellow]{sys.version.split()[0]}[/yellow]\n"
-        f"Platform: [magenta]{sys.platform}[/magenta]",
+        f"Version:  [green]{__version__}[/green]\n"
+        f"Python:   [yellow]{sys.version.split()[0]}[/yellow]\n"
+        f"Platform: [magenta]{_get_platform_info()}[/magenta]",
         title="📦 Version Information",
         border_style="cyan"
     ))
@@ -297,8 +328,8 @@ def generate(
         ))
         
         if state.verbose:
-            console.print(f"[dim]Target directory: {target_directory.absolute()}[/dim]")
-            console.print(f"[dim]Output directory: {output_dir.absolute()}[/dim]")
+            console.print(f"  Target: {target_directory.absolute()}")
+            console.print(f"  Output: {output_dir.absolute()}")
         
         # Import and initialize WorkflowManager
         from testgen.manager import WorkflowManager
@@ -329,9 +360,9 @@ def generate(
         console.print("\n[green]✅ Test generation completed![/green]")
         console.print(f"[green]📁 Generated {result.get('tests_generated', 0)} test files[/green]")
         console.print(f"[green]💾 Saved to:[/green]")
-        console.print(f"   [link=file://{output_dir.absolute()}]{output_dir.absolute()}[/link]")
-        console.print("[dim]  💡 Use [cyan bold]testgen test[/cyan bold] to run the tests[/dim]")
-        console.print("[dim]  💡 Use [cyan bold]testgen generate --help[/cyan bold] to see all available flags[/dim]")
+        console.print(f"   [link={_file_url(output_dir)}]{output_dir.absolute()}[/link]")
+        console.print("\n  [cyan]→[/cyan] Run [bold cyan]testgen test[/bold cyan] to execute the tests")
+        console.print("  [cyan]→[/cyan] Use [bold cyan]testgen generate --help[/bold cyan] for more options")
 
         
         # TODO: Watch mode integration
@@ -425,7 +456,7 @@ def generate(
         error_lines = str(e).strip().splitlines()
         console.print(f"[red]❌ Error during test generation:[/red] {error_lines[0]}")
         for line in error_lines[1:]:
-            console.print(f"   [dim]{line}[/dim]")
+            console.print(f"   {line}")
         if state.debug:
             console.print_exception()
         else:
@@ -540,11 +571,10 @@ def test(
             border_style="cyan"
         ))
         
-        console.print(f"[dim]🗂️  Auto-discovered test dir: {test_dir}[/dim]")
         if state.verbose:
-            console.print(f"[dim]Project dir: {resolved_project_dir.absolute()}[/dim]")
-            console.print(f"[dim]Test directory: {test_dir.absolute()}[/dim]")
-            console.print(f"[dim]Test pattern: {pattern}[/dim]")
+            console.print(f"  Project dir: {resolved_project_dir.absolute()}")
+            console.print(f"  Test directory: {test_dir.absolute()}")
+            console.print(f"  Test pattern: {pattern}")
 
         # Count test files so we can warn early if there's nothing to run
         _test_files_found = [
@@ -599,19 +629,19 @@ def test(
         # Success message
         console.print("\n[green]✅ Test execution completed![/green]")
         console.print(f"[green]📊 Results cached at:[/green]")
-        console.print(f"   [link=file://{cache_dir.absolute()}]{cache_dir.absolute()}[/link]")
-        console.print(f"[dim]💡 Run 'testgen report {resolved_project_dir}' to generate an HTML report[/dim]")
-        console.print("[dim]  💡 Use [cyan bold]testgen test --help[/cyan bold] to see all available flags[/dim]")
+        console.print(f"   [link={_file_url(cache_dir)}]{cache_dir.absolute()}[/link]")
+        console.print(f"\n  [cyan]→[/cyan] Run [bold cyan]testgen report {resolved_project_dir}[/bold cyan] to generate a report")
+        console.print("  [cyan]→[/cyan] Use [bold cyan]testgen test --help[/bold cyan] for more options")
         
     except Exception as e:
         error_lines = str(e).strip().splitlines()
         console.print(f"[red]❌ Error during test execution:[/red] {error_lines[0]}")
         for line in error_lines[1:]:
-            console.print(f"   [dim]{line}[/dim]")
+            console.print(f"   {line}")
         if state.debug:
             console.print_exception()
         else:
-            console.print("[dim]   Tip: run with --debug for a full stack trace[/dim]")
+            console.print("   Tip: run with --debug for a full stack trace")
         raise typer.Exit(1)
 
 
@@ -704,8 +734,8 @@ def report(
         ))
         
         if state.verbose:
-            console.print(f"[dim]Project dir: {resolved_project_dir.absolute()}[/dim]")
-            console.print(f"[dim]Output path: {output_path.absolute()}[/dim]")
+            console.print(f"  Project dir: {resolved_project_dir.absolute()}")
+            console.print(f"  Output path: {output_path.absolute()}")
         
         # Initialize WorkflowManager anchored to the project directory
         from testgen.manager import WorkflowManager
@@ -726,8 +756,7 @@ def report(
         console.print("\n[yellow]📂 Loading test results...[/yellow]")
         if state.verbose:
             cache_file = resolved_project_dir / "TestGen-AI" / ".cache" / "test_results_python.json"
-            console.print(f"[dim]   Cache file: {cache_file}[/dim]")
-            console.print(f"[dim]   Cache exists: {cache_file.exists()}[/dim]")
+            console.print(f"  Cache file: {cache_file}")
             if cache_file.exists():
                 import json
                 from datetime import datetime
@@ -735,16 +764,16 @@ def report(
                     cache_data = json.loads(cache_file.read_text())
                     cache_time = datetime.fromisoformat(cache_data['timestamp'])
                     age_seconds = (datetime.now() - cache_time).total_seconds()
-                    console.print(f"[dim]   Cache timestamp: {cache_time.isoformat()}[/dim]")
-                    console.print(f"[dim]   Cache age: {age_seconds:.0f} seconds ({age_seconds/3600:.1f} hours)[/dim]")
-                except Exception as e:
-                    console.print(f"[dim]   Cache read error: {e}[/dim]")
+                    console.print(f"  Cache timestamp: {cache_time.isoformat()}")
+                    console.print(f"  Cache age: {age_seconds:.0f} seconds")
+                except Exception:
+                    pass
         
         state_info = manager.get_state()
         
         if not state_info.get('test_results'):
             console.print("[yellow]⚠️  No test results found in cache[/yellow]")
-            console.print("[dim]💡 Hint: Run 'testgen test <project_dir>' first[/dim]")
+            console.print("  [cyan]→[/cyan] Run [bold cyan]testgen test <project_dir>[/bold cyan] first")
             test_results = {
                 'total': 0,
                 'passed': 0,
@@ -756,7 +785,7 @@ def report(
         else:
             test_results = state_info['test_results']
             if state.verbose:
-                console.print(f"[dim]   ✓ Loaded {test_results.get('total', 0)} test results from cache[/dim]")
+                console.print(f"  Loaded {test_results.get('total', 0)} test results from cache")
         
         # Generate report
         console.print(f"\n[yellow]📊 Generating {format_type} report...[/yellow]")
@@ -770,27 +799,26 @@ def report(
         # Success message with clickable link
         console.print(f"\n[green]✅ Report generated successfully![/green]")
         console.print(f"[green]📄 Report saved to:[/green]")
-        console.print(f"   [link=file://{Path(report_path).absolute()}]{report_path}[/link]")
-        console.print(f"\n[dim]💡 Click the link above to open, or use:[/dim]")
+        console.print(f"   [link={_file_url(Path(report_path))}]{report_path}[/link]")
         if not pdf:
-            console.print(f"[cyan]   testgen report {resolved_project_dir.name} --open[/cyan]")
-        console.print("[dim]  💡 Use [cyan bold]testgen report --help[/cyan bold] to see all available flags[/dim]")
+            console.print(f"\n  [cyan]→[/cyan] Open with: [bold cyan]testgen report {resolved_project_dir.name} --open[/bold cyan]")
+        console.print("  [cyan]→[/cyan] Use [bold cyan]testgen report --help[/bold cyan] for more options")
         
         # Open in browser if requested
         if open_browser and not pdf and report_path:
             import webbrowser
-            webbrowser.open(f"file://{Path(report_path).absolute()}")
+            webbrowser.open(_file_url(Path(report_path)))
             console.print("\n[cyan]🌐 Opened report in browser[/cyan]")
         
     except Exception as e:
         error_lines = str(e).strip().splitlines()
         console.print(f"[red]❌ Error during report generation:[/red] {error_lines[0]}")
         for line in error_lines[1:]:
-            console.print(f"   [dim]{line}[/dim]")
+            console.print(f"   {line}")
         if state.debug:
             console.print_exception()
         else:
-            console.print("[dim]   Tip: run with --debug for a full stack trace[/dim]")
+            console.print("   Tip: run with --debug for a full stack trace")
         raise typer.Exit(1)
 
 
@@ -904,25 +932,25 @@ def auto(
         # Show file locations
         test_dir = target_directory / "TestGen-AI" / "tests"
         console.print("\n[green]📁 Generated files:[/green]")
-        console.print(f"   [link=file://{test_dir.absolute()}]Tests: {test_dir.absolute()}[/link]")
+        console.print(f"   [link={_file_url(test_dir)}]Tests: {test_dir.absolute()}[/link]")
         
         if not skip_report:
             report_dir = target_directory / "TestGen-AI" / "reports"
-            console.print(f"   [link=file://{report_dir.absolute()}]Reports: {report_dir.absolute()}[/link]")
+            console.print(f"   [link={_file_url(report_dir)}]Reports: {report_dir.absolute()}[/link]")
         
         console.print("\n[bold green]Success![/bold green] Your autonomous QA agent has completed all tasks.")
-        console.print("[dim]  💡 Use [cyan bold]testgen auto --help[/cyan bold] to see all available flags[/dim]")
-        console.print("[dim]💡 Tip: Use individual commands (generate, test, report) for more control[/dim]\n")
+        console.print("  [cyan]→[/cyan] Use [bold cyan]testgen auto --help[/bold cyan] to see all available flags")
+        console.print("  [cyan]→[/cyan] Tip: Use individual commands (generate, test, report) for more control\n")
         
     except Exception as e:
         error_lines = str(e).strip().splitlines()
         console.print(f"\n[red]❌ Error during auto workflow:[/red] {error_lines[0]}")
         for line in error_lines[1:]:
-            console.print(f"   [dim]{line}[/dim]")
+            console.print(f"   {line}")
         if state.debug:
             console.print_exception()
         else:
-            console.print("[dim]   Tip: run with --debug for a full stack trace[/dim]")
+            console.print("   Tip: run with --debug for a full stack trace")
         raise typer.Exit(1)
 
 
