@@ -566,36 +566,6 @@ class WorkflowManager:
         if self.verbose:
             self.printer.print_success(f"JSON report: {json_path}")
         
-        # Always generate PDF if requested or if in timestamped folder
-        if format == 'pdf' or is_timestamped_folder:
-            if is_timestamped_folder:
-                pdf_filename = "report.pdf"
-            else:
-                pdf_filename = f"report_{timestamp}.pdf"
-            
-            pdf_path = self.report_dir / pdf_filename
-            try:
-                self.reporter.generate_pdf(summary, str(pdf_path))
-                reports.append(str(pdf_path))
-                self.printer.print_success(f"PDF report: {pdf_path}")
-                if format == 'pdf':
-                    reports.insert(0, str(pdf_path))  # Make PDF primary if explicitly requested
-            except ImportError as e:
-                # Handle missing PDF dependencies gracefully
-                error_msg = str(e)
-                self.printer.print_warning("⚠️  PDF generation skipped:")
-                if self.verbose:
-                    # Print the full error with installation instructions
-                    for line in error_msg.split('\n'):
-                        self.printer.print_warning(f"   {line}")
-                # HTML report was already generated, so we still have a working report
-            except Exception as e:
-                # Handle other PDF generation errors
-                self.printer.print_warning(f"PDF generation failed: {e}")
-                if self.verbose:
-                    import traceback
-                    self.printer.print_warning(traceback.format_exc())
-        
         self.state.report_path = reports[0] if reports else None
         self.state.phase = "IDLE"
         

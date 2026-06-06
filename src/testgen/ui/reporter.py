@@ -988,14 +988,7 @@ class ReportGenerator:
             font-weight: 600;
             transition: all 0.2s;
             flex-shrink: 0;
-        }}
-
-        .banner-close:hover {{
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-        }}
-
-        /* Print-friendly styles for PDF generation */
+              /* Print-friendly styles to exactly match screen */
         @media print {{
             * {{
                 -webkit-print-color-adjust: exact !important;
@@ -1004,17 +997,18 @@ class ReportGenerator:
             }}
 
             @page {{
-                margin: 15mm 12mm;
+                margin: 10mm;
                 size: A4 portrait;
             }}
 
             body {{
-                background: white !important;
-                padding: 0 !important;
-                margin: 0 !important;
+                background: #f8fafc !important;
+                padding: 0;
             }}
 
-            #successBanner {{
+            #successBanner,
+            .header-actions,
+            .filters-section {{
                 display: none !important;
             }}
 
@@ -1023,258 +1017,26 @@ class ReportGenerator:
                 border-radius: 0 !important;
                 max-width: 100% !important;
                 width: 100% !important;
-                page-break-inside: avoid;
+                margin: 0 !important;
                 padding: 0 !important;
             }}
 
-            .header {{
-                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
-                color: white !important;
-                padding: 20px 15px !important;
-                page-break-after: avoid;
-                page-break-inside: avoid;
-                margin: 0 !important;
+            /* Prevent awkward page breaks */
+            .header, .summary-card, .chart-wrapper {{
+                page-break-inside: avoid !important;
             }}
-
-            .header h1 {{
-                font-size: 1.6em !important;
-                margin: 0 0 5px 0 !important;
-                text-align: center !important;
-            }}
-
-            .header p {{
-                font-size: 0.9em !important;
-                margin: 0 !important;
-                opacity: 0.95;
-            }}
-
-            .header-actions {{
-                display: none !important;
-            }}
-
-            .filters-section {{
-                display: none !important;
-            }}
-
-            .content {{
-                padding: 15px 12mm !important;
-                page-break-inside: avoid;
-            }}
-
-            /* KPI Cards - Solid backgrounds for print */
+            
             .summary {{
-                display: grid !important;
-                grid-template-columns: repeat(6, 1fr) !important;
-                gap: 10px !important;
-                margin-bottom: 20px !important;
-                page-break-inside: avoid !important;
-            }}
-
-            .summary-card {{
-                padding: 15px 10px !important;
-                text-align: center !important;
-                border: 3px solid !important;
-                border-radius: 8px !important;
-                page-break-inside: avoid !important;
-                position: relative !important;
-                overflow: visible !important;
-            }}
-
-            .summary-card::before,
-            .summary-card::after {{
-                display: none !important;
-            }}
-
-            .summary-card.total {{
-                background: #3b82f6 !important;
-                border-color: #1e40af !important;
-                color: #000000 !important;
-            }}
-
-            .summary-card.passed {{
-                background: #10b981 !important;
-                border-color: #047857 !important;
-                color: #000000 !important;
-            }}
-
-            .summary-card.failed {{
-                background: #ef4444 !important;
-                border-color: #b91c1c !important;
-                color: #000000 !important;
-            }}
-
-            .summary-card.skipped {{
-                background: #f59e0b !important;
-                border-color: #d97706 !important;
-                color: #000000 !important;
-            }}
-
-            .summary-card.duration {{
-                background: #06b6d4 !important;
-                border-color: #0891b2 !important;
-                color: #000000 !important;
-            }}
-
-            .summary-card.rate {{
-                background: #8b5cf6 !important;
-                border-color: #6d28d9 !important;
-                color: #000000 !important;
-            }}
-
-            .summary-card h3 {{
-                font-size: 11px !important;
-                color: #000000 !important;
-                margin: 0 0 8px 0 !important;
-                padding: 0 !important;
-                text-transform: uppercase !important;
-                letter-spacing: 1px !important;
-                font-weight: 700 !important;
-                opacity: 1 !important;
-                position: relative !important;
-                z-index: 10 !important;
-            }}
-
-            .summary-card .value {{
-                font-size: 26px !important;
-                color: #000000 !important;
-                font-weight: 900 !important;
-                line-height: 1 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                position: relative !important;
-                z-index: 10 !important;
-            }}
-
-            .charts-section {{
-                display: block !important;
-                page-break-before: auto;
-                page-break-inside: avoid !important;
-                margin-bottom: 20px !important;
-                padding: 0 !important;
-                visibility: visible !important;
-            }}
-
-            .charts-section h2 {{
-                font-size: 1.2em !important;
-                margin: 10px 0 8px 0 !important;
-                color: #1e3a8a !important;
-                page-break-after: avoid;
-                text-align: center !important;
-            }}
-
-            .charts-container {{
-                display: flex !important;
-                flex-direction: row !important;
-                gap: 8px !important;
-                justify-content: space-between !important;
-                visibility: visible !important;
-                page-break-inside: avoid !important;
-            }}
-
-            .chart-wrapper {{
-                page-break-inside: avoid !important;
-                background: white !important;
-                padding: 8px !important;
-                border: 1px solid #e5e7eb !important;
-                border-radius: 4px !important;
-                display: block !important;
-                visibility: visible !important;
-                flex: 1 !important;
-                min-width: 0 !important;
-            }}
-
-            .chart-wrapper h3 {{
-                color: #1e3a8a !important;
-                font-size: 0.85em !important;
-                margin: 0 0 6px 0 !important;
-                text-align: center !important;
-            }}
-
-            canvas {{
-                max-width: 100% !important;
-                height: auto !important;
-                page-break-inside: avoid !important;
-                display: block !important;
-                visibility: visible !important;
-            }}
-
-            .results-section {{
-                page-break-before: auto;
-                page-break-inside: auto;
-                margin-bottom: 15px !important;
-            }}
-
-            .results-section h2 {{
-                page-break-after: avoid;
-                margin: 15px 0 10px 0 !important;
-                font-size: 1.3em !important;
-                color: #1e3a8a !important;
+                page-break-inside: avoid;
             }}
 
             table {{
-                break-inside: auto !important;
-                font-size: 0.7em !important;
-                width: 100% !important;
                 page-break-inside: auto;
-                border-collapse: collapse !important;
-                margin-top: 10px;
             }}
 
-            thead {{
-                display: table-header-group !important;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-            }}
-
-            thead th {{
-                color: white !important;
-                padding: 8px 6px !important;
-                font-size: 0.95em !important;
-                font-weight: 600 !important;
-                border: none !important;
-            }}
-
-            tbody tr {{
-                page-break-inside: avoid !important;
-                border-bottom: 1px solid #e5e7eb !important;
-            }}
-
-            tbody tr:nth-child(even) {{
-                background: #f9fafb !important;
-            }}
-
-            td {{
-                padding: 6px !important;
-                font-size: 1em !important;
-                vertical-align: top !important;
-            }}
-
-            th::after {{
-                display: none !important;
-            }}
-
-            .test-name-cell {{
-                max-width: 220px;
-                font-size: 0.95em !important;
-                word-wrap: break-word !important;
-            }}
-
-            .duration-cell {{
-                font-size: 0.9em !important;
-                white-space: nowrap;
-            }}
-
-            .details-cell {{
-                max-width: 200px;
-                font-size: 0.88em !important;
-                word-wrap: break-word !important;
-            }}
-
-            .footer {{
-                page-break-before: avoid;
-                margin-top: 15px !important;
-                padding: 15px 12mm !important;
-                font-size: 0.85em !important;
-                border-top: 1px solid #e5e7eb !important;
+            tr {{
+                page-break-inside: avoid;
+                page-break-after: auto;
             }}
         }}
     </style>
@@ -2089,95 +1851,352 @@ class ReportGenerator:
     def generate_pdf(
         self,
         results: ExecutionSummary,
-        output_path: str
+        output_path: str,
+        html_source_path: str = None,
     ) -> str:
         """
-        Generate a PDF report from test execution results by converting HTML to PDF.
-        This preserves all the beautiful styling from the HTML report.
+        Generate a rich PDF report with charts, coloured stat cards, and full details.
+
+        Uses reportlab (bundled with testgen-ai, pure Python) as the primary engine
+        so that no extra downloads or system libraries are required.
+        If Playwright's Chromium browser is already installed it is tried first for
+        a pixel-perfect render; otherwise reportlab produces a beautiful native PDF.
 
         Args:
             results: ExecutionSummary containing test results
             output_path: Path where the PDF report will be saved
+            html_source_path: Optional path to an already-generated HTML file
+                              (used only when Playwright is available).
 
         Returns:
             Path to the generated PDF report
         """
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Try weasyprint first (best option - preserves HTML/CSS perfectly)
+
+        # smart details helper (mirrors HTML report logic exactly)
+        def _details_for(test: dict) -> str:
+            status  = (test.get('status') or '').upper()
+            message = test.get('message') or ''
+            detail  = test.get('details') or ''
+            name    = test.get('test_name') or ''
+            if status == 'PASS' and not detail and not message:
+                if 'test_' in name:
+                    part = name.split('::')[-1].replace('test_', '').replace('_', ' ').title()
+                    return f'\u2713 {part} validation passed'
+                return '\u2713 All assertions passed'
+            return (detail or message or '')[:150]
+
+        # Optional: Playwright (only when Chromium browser is already installed)
         try:
-            from weasyprint import HTML
-            
-            # Generate HTML content first
-            html_content = self._generate_html_content(results)
-            
-            # Convert HTML to PDF
-            HTML(string=html_content).write_pdf(str(output_file))
-            
-            return str(output_file)
-            
-        except (ImportError, OSError, Exception) as e:
-            # Check if it's a weasyprint-related issue (missing dependencies or import)
-            error_msg = str(e).lower()
-            is_weasy_error = (
-                'weasyprint' in error_msg 
-                or 'external libraries' in error_msg
-                or 'libgobject' in error_msg
-                or 'ctypes' in error_msg
-                or isinstance(e, OSError)
+            from playwright.sync_api import sync_playwright
+            import shutil as _shutil, subprocess as _sub, os as _os
+            # Check if the Chromium executable actually exists
+            _appdata = _os.environ.get('LOCALAPPDATA') or _os.path.expanduser('~')
+            _cex = _os.path.join(_appdata, 'ms-playwright')
+            _has_browser = _os.path.isdir(_cex) and bool(_os.listdir(_cex))
+            if not _has_browser:
+                raise RuntimeError('no browser')
+            _html_p = (
+                Path(html_source_path)
+                if html_source_path and Path(html_source_path).exists()
+                else output_file.with_suffix('.html')
             )
-            
-            if is_weasy_error:
-                # WeasyPrint is installed but has missing system dependencies
-                html_path = output_file.with_suffix('.html')
-                self.generate_html(results, str(html_path))
-                
-                raise ImportError(
-                    "⚠️  WeasyPrint is installed but missing system dependencies.\n\n"
-                    "To fix this, install the required system libraries:\n"
-                    "  Windows:  choco install weasyprint\n"
-                    "  macOS:    brew install libffi libjpeg libpng libtiff openjpeg\n"
-                    "  Ubuntu:   sudo apt-get install libffi-dev libjpeg-dev libpng-dev libtiff-dev libopenjp2-7-dev\n\n"
-                    "Or use your browser to print the HTML report to PDF:\n"
-                    f"  📄 HTML report: {html_path}\n\n"
-                    "For more details, see: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
-                ) from e
-            
-            # Fallback: Try pdfkit (requires wkhtmltopdf installed)
-            try:
-                import pdfkit
-                
-                # Generate HTML content
-                html_content = self._generate_html_content(results)
-                
-                # Write to temp HTML file
-                temp_html = output_file.with_suffix('.tmp.html')
-                temp_html.write_text(html_content, encoding='utf-8')
-                
-                # Convert HTML to PDF
-                pdfkit.from_file(str(temp_html), str(output_file))
-                
-                # Clean up temp file
-                temp_html.unlink()
-                
-                return str(output_file)
-                
-            except ImportError:
-                # Final fallback: Generate HTML report with print-friendly CSS
-                # User can use browser's print-to-PDF feature
-                html_path = output_file.with_suffix('.html')
-                self.generate_html(results, str(html_path))
-                
-                raise ImportError(
-                    "PDF generation requires either 'weasyprint' or 'pdfkit'.\n\n"
-                    "Quick fix options:\n"
-                    "  1. Install weasyprint: pip install weasyprint\n"
-                    "  2. Install pdfkit: pip install pdfkit (also requires wkhtmltopdf)\n"
-                    "  3. Use HTML report: Open in browser and print to PDF\n\n"
-                    f"Your HTML report is ready: {html_path}\n"
-                    "For system dependencies, see: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
-                ) from e
+            if not _html_p.exists():
+                self.generate_html(results, str(_html_p))
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(_html_p.as_uri(), wait_until='networkidle', timeout=30_000)
+                try:
+                    page.wait_for_timeout(1500)
+                except Exception:
+                    pass
+                page.pdf(
+                    path=str(output_file),
+                    format='A4',
+                    print_background=True,
+                    margin={'top': '10mm', 'bottom': '10mm',
+                            'left': '8mm', 'right': '8mm'},
+                )
+                browser.close()
+            return str(output_file)
+        except Exception:
+            pass  # Fall through to reportlab
+
+        # Primary: reportlab with full charts and styling (always available)
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import (
+            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+            HRFlowable,
+        )
+        from reportlab.lib.enums import TA_CENTER
+        from reportlab.graphics.shapes import Drawing, Rect, String
+        from reportlab.graphics.charts.piecharts import Pie
+        from reportlab.graphics.charts.barcharts import VerticalBarChart
+
+        PAGE_W, PAGE_H = A4
+        MARGIN = 1.5 * cm
+
+        # colour palette
+        C_DARK    = colors.HexColor('#0f172a')
+        C_NAVY    = colors.HexColor('#1e40af')
+        C_NAVY2   = colors.HexColor('#3730a3')
+        C_SLATE   = colors.HexColor('#475569')
+        C_LIGHT   = colors.HexColor('#f1f5f9')
+        C_BORDER  = colors.HexColor('#e2e8f0')
+        C_GREEN   = colors.HexColor('#16a34a')
+        C_RED     = colors.HexColor('#dc2626')
+        C_AMBER   = colors.HexColor('#d97706')
+        C_BLUE    = colors.HexColor('#0369a1')
+        C_PURPLE  = colors.HexColor('#7c3aed')
+        C_MUTED   = colors.HexColor('#94a3b8')
+        C_ROW_ALT = colors.HexColor('#f8fafc')
+        C_WHITE   = colors.white
+
+        pass_rate = results.success_rate
+        total     = results.total
+        passed    = results.passed
+        failed    = results.failed
+        skipped   = results.skipped
+        overall_c = C_GREEN if failed == 0 and total > 0 else (C_RED if failed > 0 else C_MUTED)
+
+        styles = getSampleStyleSheet()
+
+        def _ps(name, parent='Normal', **kw):
+            return ParagraphStyle(name, parent=styles[parent], **kw)
+
+        sty_h2     = _ps('TG_H2',    parent='Heading2', fontSize=13, textColor=C_DARK,
+                          spaceBefore=10, spaceAfter=6)
+        sty_cell   = _ps('TG_Cell',  fontSize=7.5, leading=10, textColor=C_DARK)
+        sty_detail = _ps('TG_Det',   fontSize=7, leading=9, textColor=colors.HexColor('#64748b'))
+        sty_footer = _ps('TG_Foot',  fontSize=8, textColor=C_MUTED, alignment=TA_CENTER)
+
+        doc = SimpleDocTemplate(
+            str(output_file), pagesize=A4,
+            rightMargin=MARGIN, leftMargin=MARGIN,
+            topMargin=0, bottomMargin=1.5 * cm,
+        )
+        story = []
+
+        # ── HEADER BAND ──────────────────────────────────────────────────────
+        HDR_H = 3.4 * cm
+
+        def _header() -> Drawing:
+            d = Drawing(PAGE_W, HDR_H)
+            d.add(Rect(0, 0, PAGE_W, HDR_H, fillColor=C_NAVY, strokeColor=None))
+            d.add(Rect(0, HDR_H - 6, PAGE_W, 6, fillColor=C_NAVY2, strokeColor=None))
+            d.add(String(MARGIN, HDR_H - 28, results.project_name,
+                         fontName='Helvetica-Bold', fontSize=18, fillColor=colors.white))
+            d.add(String(MARGIN, HDR_H - 44, 'Generated by TestGen-AI',
+                         fontName='Helvetica', fontSize=9,
+                         fillColor=colors.HexColor('#93c5fd')))
+            d.add(String(MARGIN, HDR_H - 56,
+                         f"Generated: {results.timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                         fontName='Helvetica', fontSize=9,
+                         fillColor=colors.HexColor('#93c5fd')))
+            badge_txt = 'ALL PASSED' if failed == 0 and total > 0 else \
+                        ('FAILURES'  if failed > 0 else 'NO TESTS')
+            badge_col = C_GREEN if failed == 0 and total > 0 else C_RED
+            bx = PAGE_W - MARGIN - 84
+            by = HDR_H / 2 - 10
+            d.add(Rect(bx, by, 84, 20, rx=4, ry=4, fillColor=badge_col, strokeColor=None))
+            d.add(String(bx + 42, by + 6, badge_txt,
+                         fontName='Helvetica-Bold', fontSize=9,
+                         fillColor=colors.white, textAnchor='middle'))
+            if results.language:
+                lang = results.language.upper()
+                d.add(Rect(bx, by - 26, 84, 18, rx=4, ry=4,
+                           fillColor=colors.HexColor('#1d4ed8'), strokeColor=None))
+                d.add(String(bx + 42, by - 20, lang,
+                             fontName='Helvetica-Bold', fontSize=8,
+                             fillColor=colors.white, textAnchor='middle'))
+            return d
+
+        story.append(_header())
+        story.append(Spacer(1, 0.5 * cm))
+
+        # ── STAT CARDS ───────────────────────────────────────────────────────
+        CARD_W = (PAGE_W - 2 * MARGIN) / 6
+        CARD_H = 1.8 * cm
+
+        def _cards() -> Drawing:
+            d = Drawing(PAGE_W - 2 * MARGIN, CARD_H)
+            items = [
+                ('TOTAL',   str(total),              C_NAVY2),
+                ('PASSED',  str(passed),             C_GREEN),
+                ('FAILED',  str(failed),             C_RED),
+                ('SKIPPED', str(skipped),            C_AMBER),
+                ('DURATION',f'{results.duration:.2f}s', C_BLUE),
+                ('PASS RATE',f'{pass_rate:.1f}%',   overall_c),
+            ]
+            for i, (lbl, val, col) in enumerate(items):
+                x = i * CARD_W
+                d.add(Rect(x + 2, 2, CARD_W - 4, CARD_H - 4, rx=4, ry=4,
+                           fillColor=C_LIGHT, strokeColor=C_BORDER, strokeWidth=0.5))
+                d.add(Rect(x + 2, CARD_H - 6, CARD_W - 4, 4, rx=2, ry=2,
+                           fillColor=col, strokeColor=None))
+                d.add(String(x + CARD_W / 2, CARD_H / 2,
+                             val, fontName='Helvetica-Bold', fontSize=14,
+                             fillColor=col, textAnchor='middle'))
+                d.add(String(x + CARD_W / 2, 6,
+                             lbl, fontName='Helvetica', fontSize=6.5,
+                             fillColor=C_SLATE, textAnchor='middle'))
+            return d
+
+        story.append(_cards())
+        story.append(Spacer(1, 0.6 * cm))
+
+        # ── CHARTS ───────────────────────────────────────────────────────────
+        story.append(Paragraph('Visual Analytics', sty_h2))
+
+        CPANEL = (PAGE_W - 2 * MARGIN - 0.5 * cm) / 2
+        CH     = 5.5 * cm
+
+        def _pie() -> Drawing:
+            d = Drawing(CPANEL, CH)
+            d.add(Rect(0, 0, CPANEL, CH, rx=6, ry=6,
+                       fillColor=C_WHITE, strokeColor=C_BORDER, strokeWidth=0.5))
+            d.add(String(CPANEL / 2, CH - 14, 'Test Results Distribution',
+                         fontName='Helvetica-Bold', fontSize=9,
+                         fillColor=C_DARK, textAnchor='middle'))
+            pc = Pie()
+            pc.x = 20; pc.y = 14
+            pc.width = CH - 34; pc.height = CH - 34
+            pc.data = [max(passed, 0.001), max(failed, 0.001), max(skipped, 0.001)]
+            pc.slices[0].fillColor = C_GREEN
+            pc.slices[1].fillColor = C_RED
+            pc.slices[2].fillColor = C_AMBER
+            for k in range(3):
+                pc.slices[k].strokeColor = C_WHITE
+                pc.slices[k].strokeWidth = 1.5
+            pc.innerRadiusFraction = 0.55
+            pc.slices.label_visible = False
+            d.add(pc)
+            # legend
+            lx = CH - 8; ly = CH - 32
+            for lbl, col in [(f'Passed ({passed})', C_GREEN),
+                             (f'Failed ({failed})',  C_RED),
+                             (f'Skipped ({skipped})',C_AMBER)]:
+                d.add(Rect(lx, ly, 8, 8, fillColor=col, strokeColor=None))
+                d.add(String(lx + 12, ly + 1, lbl,
+                             fontName='Helvetica', fontSize=7, fillColor=C_SLATE))
+                ly -= 14
+            return d
+
+        def _bar() -> Drawing:
+            d = Drawing(CPANEL, CH)
+            d.add(Rect(0, 0, CPANEL, CH, rx=6, ry=6,
+                       fillColor=C_WHITE, strokeColor=C_BORDER, strokeWidth=0.5))
+            d.add(String(CPANEL / 2, CH - 14, 'Pass Rate',
+                         fontName='Helvetica-Bold', fontSize=9,
+                         fillColor=C_DARK, textAnchor='middle'))
+            bc = VerticalBarChart()
+            bc.x = 30; bc.y = 22
+            bc.width  = CPANEL - 50
+            bc.height = CH - 44
+            # Two separate series (one bar each) so bars[0]/bars[1] control colour per bar
+            bc.data   = [[pass_rate], [100.0 - pass_rate]]
+            bc.categoryAxis.categoryNames = ['']
+            bc.bars[0].fillColor = C_GREEN   # Pass bar — green
+            bc.bars[1].fillColor = C_RED     # Fail bar  — red
+            bc.valueAxis.valueMin = 0
+            bc.valueAxis.valueMax = 100
+            bc.valueAxis.valueStep = 25
+            bc.categoryAxis.labels.fontSize = 7
+            bc.valueAxis.labels.fontSize = 7
+            # Show legend labels manually under the bars
+            bar_w = (CPANEL - 50) / 4
+            d.add(bc)
+            d.add(String(30 + bar_w * 0.5, 10, 'Pass %',
+                         fontName='Helvetica', fontSize=7,
+                         fillColor=C_GREEN, textAnchor='middle'))
+            d.add(String(30 + bar_w * 2.5, 10, 'Fail %',
+                         fontName='Helvetica', fontSize=7,
+                         fillColor=C_RED, textAnchor='middle'))
+            # Big pass-rate label in centre
+            d.add(String(CPANEL / 2, CH / 2 - 4,
+                         f'{pass_rate:.1f}%',
+                         fontName='Helvetica-Bold', fontSize=18,
+                         fillColor=overall_c, textAnchor='middle'))
+            return d
+
+
+        chart_row = Table([[_pie(), _bar()]], colWidths=[CPANEL, CPANEL])
+        chart_row.setStyle(TableStyle([
+            ('LEFTPADDING',  (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING',   (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING',(0, 0), (-1, -1), 0),
+        ]))
+        story.append(chart_row)
+        story.append(Spacer(1, 0.6 * cm))
+
+        # ── RESULTS TABLE ────────────────────────────────────────────────────
+        story.append(Paragraph('Test Results', sty_h2))
+
+        if results.results:
+            col_w = [0.7*cm, 5.0*cm, 1.8*cm, 1.7*cm, 6.5*cm]
+            tbl_data = [['#', 'Test Name', 'Status', 'Duration', 'Details']]
+            sc_map = {'PASS': C_GREEN, 'FAIL': C_RED, 'SKIP': C_AMBER, 'ERROR': C_PURPLE}
+
+            for i, test in enumerate(results.results, 1):
+                status   = (test.get('status') or 'UNKNOWN').upper()
+                name     = test.get('test_name') or ''
+                duration = test.get('duration') or 0.0
+                detail   = _details_for(test)
+                tbl_data.append([
+                    str(i),
+                    Paragraph(name, sty_cell),
+                    status,
+                    f'{duration:.3f}s',
+                    Paragraph(detail, sty_detail),
+                ])
+
+            rt = Table(tbl_data, colWidths=col_w, repeatRows=1, splitByRow=True)
+            cs: list = [
+                ('BACKGROUND',    (0, 0), (-1, 0), C_NAVY),
+                ('TEXTCOLOR',     (0, 0), (-1, 0), C_WHITE),
+                ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE',      (0, 0), (-1, 0), 8.5),
+                ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
+                ('LINEBELOW',     (0, 0), (-1, 0), 0.8, C_NAVY2),
+                ('FONTSIZE',      (0, 1), (-1, -1), 7.5),
+                ('ALIGN',         (0, 1), (0, -1), 'CENTER'),
+                ('ALIGN',         (2, 1), (2, -1), 'CENTER'),
+                ('ALIGN',         (3, 1), (3, -1), 'CENTER'),
+                ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID',          (0, 0), (-1, -1), 0.3, C_BORDER),
+                ('TOPPADDING',    (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
+            ]
+            for row_i, test in enumerate(results.results, 1):
+                st = (test.get('status') or 'UNKNOWN').upper()
+                c  = sc_map.get(st, C_MUTED)
+                cs.append(('TEXTCOLOR', (2, row_i), (2, row_i), c))
+                cs.append(('FONTNAME',  (2, row_i), (2, row_i), 'Helvetica-Bold'))
+                if row_i % 2 == 0:
+                    cs.append(('BACKGROUND', (0, row_i), (-1, row_i), C_ROW_ALT))
+            rt.setStyle(TableStyle(cs))
+            story.append(rt)
+        else:
+            story.append(Paragraph('No test results recorded.', styles['Normal']))
+
+        # ── FOOTER ───────────────────────────────────────────────────────────
+        story.append(Spacer(1, 0.6 * cm))
+        story.append(HRFlowable(width='100%', thickness=0.5, color=C_BORDER))
+        story.append(Spacer(1, 0.2 * cm))
+        story.append(Paragraph(
+            'Generated by TestGen\u2011AI \u00b7 Universal Multi\u2011Language Testing Framework',
+            sty_footer))
+
+        doc.build(story)
+        return str(output_file)
 
     def save_history(
         self,

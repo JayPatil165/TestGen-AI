@@ -53,6 +53,20 @@ def _ensure_in_path():
 
 def main():
     """Entry point for testgen command."""
+    # Force UTF-8 output on Windows so Rich emoji/unicode never crash with cp1252
+    import os
+    os.environ.setdefault("PYTHONUTF8", "1")
+    if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except Exception:
+            pass
+    if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+        try:
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        except Exception:
+            pass
+
     # Try to ensure PATH is set (Windows only)
     try:
         _ensure_in_path()
