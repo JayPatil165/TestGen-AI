@@ -1032,9 +1032,24 @@ def config_show():
     # Re-instantiate to pick up any recent writes
     active = Config()
 
+    def is_real_key(k: Optional[str]) -> bool:
+        """Return False for None, empty, or obvious template placeholders."""
+        if not k:
+            return False
+        low = k.lower()
+        # Common placeholder patterns in .env templates
+        if any(p in low for p in ("your-", "-here", "your_", "example", "placeholder", "xxx")):
+            return False
+        if low.startswith("sk-your") or low.startswith("your-"):
+            return False
+        # Minimum realistic API key length
+        return len(k) >= 16
+
     def mask(v: Optional[str]) -> str:
-        if not v:
+        """Mask a key if it's real, otherwise show 'not set'."""
+        if not is_real_key(v):
             return "[dim]not set[/dim]"
+        # Key is real, mask it
         if len(v) <= 8:
             return "[yellow]****[/yellow]"
         return f"[yellow]{v[:4]}****{v[-2:]}[/yellow]"
