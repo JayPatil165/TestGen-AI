@@ -290,6 +290,12 @@ def generate(
         "-w",
         help="Enable watch mode for real-time test generation",
     ),
+    language: str = typer.Option(
+        "python",
+        "--language",
+        "-l",
+        help="Target programming language (e.g., python, javascript, java)",
+    ),
 ):
     """
     Generate test files for your code using AI.
@@ -337,7 +343,7 @@ def generate(
         # Use target_directory as project_path
         # Outputs will go to: target_directory/TestGen-AI/tests/ and target_directory/TestGen-AI/reports/
         workflow_config = {
-            'language': 'python',  # TODO: Auto-detect from files
+            'language': language,
             'verbose': state.verbose
         }
         
@@ -353,7 +359,7 @@ def generate(
         ):
             result = manager.execute_generate(
                 source_files=[str(target_directory)],
-                language='python'
+                language=language
             )
         
         # Success message
@@ -504,6 +510,12 @@ def test(
         "-v",
         help="Show detailed test output",
     ),
+    language: str = typer.Option(
+        "python",
+        "--language",
+        "-l",
+        help="Target programming language",
+    ),
 ):
     """
     Run generated tests and display results.
@@ -592,7 +604,7 @@ def test(
         from testgen.manager import WorkflowManager
 
         workflow_config = {
-            'language': 'python',
+            'language': language,
             'output_dir': str(test_dir),
             'verbose': state.verbose or verbose_tests
         }
@@ -608,11 +620,11 @@ def test(
         
         result = manager.execute_test(
             test_files=None,  # Auto-discover inside test_dir
-            language='python'
+            language=language
         )
         
         # Cache results for report generation (stored in <project>/TestGen-AI/.cache/)
-        manager.cache_test_results(result, 'python')
+        manager.cache_test_results(result, language)
         
         # Get cache location for display
         cache_dir = resolved_project_dir / "TestGen-AI" / ".cache"
@@ -843,6 +855,12 @@ def auto(
         "--skip-report",
         help="Skip report generation at the end",
     ),
+    language: str = typer.Option(
+        "python",
+        "--language",
+        "-l",
+        help="Target programming language",
+    ),
 ):
     """
     Run the complete autonomous workflow: Analyze → Generate → Test → Report.
@@ -893,7 +911,7 @@ def auto(
         # Use target_directory as project_path
         # Outputs will go to: target_directory/TestGen-AI/tests/ and target_directory/TestGen-AI/reports/
         workflow_config = {
-            'language': 'python',  # TODO: Auto-detect
+            'language': language,
             'verbose': state.verbose
         }
         
@@ -909,7 +927,7 @@ def auto(
         ):
             result = manager.execute_auto(
                 source_files=[str(target_directory)],
-                language='python',
+                language=language,
                 report_format='both' if not skip_report else 'json'
             )
         

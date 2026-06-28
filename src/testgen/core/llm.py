@@ -14,6 +14,7 @@ from litellm import completion
 from pydantic import BaseModel, Field
 
 from testgen.config import config, LLMProvider
+from testgen.core.language_config import Language, get_language_config
 
 
 class LLMResponse(BaseModel):
@@ -211,31 +212,42 @@ class LLMClient:
     ) -> str:
         """Generate test code for the provided source code using a specialized prompt."""
         import ast as _ast
+        
+        # Get language config
+        try:
+            lang_enum = Language(language.lower())
+        except ValueError:
+            lang_enum = Language.UNKNOWN
+            
+        lang_config = get_language_config(lang_enum)
+        lang_name = lang_config.name
+        framework = lang_config.default_framework
 
         system_prompt = (
-            f"You are an expert test engineer specializing in {language} testing.\n"
-            "Return ONLY valid, runnable Python source code — no markdown, no backticks, "
+            f"You are an expert test engineer specializing in {lang_name} testing.\n"
+            f"Return ONLY valid, runnable {lang_name} source code — no markdown, no backticks, "
             "no explanations, no prose.\n"
             "CRITICAL FORMATTING RULES:\n"
             "1. Every string literal (including assertion strings) MUST be on a single line.\n"
             "2. Never wrap a long line by breaking a string across two lines.\n"
             "3. If an assertion string is long, shorten it — never split it with a newline.\n"
-            "4. Docstrings may use triple quotes but MUST fit on one or three lines — never "
+            "4. Docstrings/comments MUST fit on one or three lines — never "
             "   wrap a single-quoted or double-quoted string literal mid-sentence.\n"
-            "5. The output must be parseable by Python's ast.parse() without errors."
         )
+        if language.lower() == 'python':
+            system_prompt += "5. The output must be parseable by Python's ast.parse() without errors.\n"
 
         user_prompt = (
-            f"Generate pytest unit tests for the following {language} code.\n\n"
+            f"Generate {framework} unit tests for the following {lang_name} code.\n\n"
             f"File: {file_path or 'unknown'}\n\n"
             f"```{language}\n{source_code}\n```\n\n"
             "Requirements:\n"
-            "- Use pytest (functions or classes starting with test_/Test)\n"
+            f"- Use {framework} conventions and assertion styles\n"
             "- Cover normal cases, edge cases, and error handling\n"
-            "- Each test has a one-line docstring\n"
+            "- Each test has a one-line docstring/comment\n"
             "- All string literals on a SINGLE line — never break them with a newline\n"
-            "- Output ONLY the Python source code, no markdown fences\n\n"
-            "Python test code:"
+            f"- Output ONLY the {lang_name} source code, no markdown fences\n\n"
+            f"{lang_name} test code:"
         )
 
         response = self.generate(user_prompt, system_prompt=system_prompt, **kwargs)
@@ -248,16 +260,18 @@ class LLMClient:
         test_code = self._repair_linebroken_strings(test_code)
 
         # Validate syntax; if still broken, emit a warning comment at the top
-        try:
-            _ast.parse(test_code)
-        except SyntaxError as exc:
-            # Prepend a warning so the user knows — file will still be saved
-            test_code = (
-                f"# WARNING: TestGen AI detected a syntax issue in this file: {exc}\n"
-                f"# Please review and fix manually, or re-run 'testgen generate'.\n\n"
-                + test_code
-            )
-
+        if language.lower() == 'python':
+            try:
+                _ast.parse(test_code)
+            except SyntaxError as exc:
+                # Prepend a warning so the user knows — file will still be saved
+                comment_style = lang_config.comment_style
+                test_code = (
+                    f"{comment_style} WARNING: TestGen AI detected a syntax issue in this file: {exc}\n"
+                    f"{comment_style} Please review and fix manually, or re-run 'testgen generate'.\n\n"
+                    + test_code
+                )
+        
         return test_code
 
     @staticmethod
