@@ -76,7 +76,16 @@ def _check_for_update() -> None:
         with urllib.request.urlopen(url, timeout=3) as resp:
             data = _json.loads(resp.read().decode())
         latest = data["info"]["version"]
-        if latest != __version__:
+        
+        def _is_newer(latest_v: str, current_v: str) -> bool:
+            try:
+                l_parts = [int(x) for x in latest_v.split('.') if x.isdigit()]
+                c_parts = [int(x) for x in current_v.split('.') if x.isdigit()]
+                return l_parts > c_parts if l_parts and c_parts else latest_v > current_v
+            except Exception:
+                return latest_v > current_v
+                
+        if _is_newer(latest, __version__):
             console.print(
                 f"[yellow]⬆️  Update available: [bold]{latest}[/bold] "
                 f"(you have {__version__})[/yellow]\n"

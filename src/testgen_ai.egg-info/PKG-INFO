@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testgen-ai
-Version: 0.2.0
+Version: 0.2.3
 Summary: The Autonomous QA Agent from Your CLI - AI-powered test generation and execution
 Author-email: Jay Ajitkumar Patil <patiljay32145@gmail.com>
 Project-URL: Homepage, https://github.com/JayPatil165/TestGen-AI
@@ -30,6 +30,8 @@ Requires-Dist: tiktoken>=0.7.0
 Requires-Dist: jinja2>=3.1.0
 Requires-Dist: google-genai>=1.0.0
 Requires-Dist: pytest-mock>=3.12.0
+Requires-Dist: reportlab>=4.0.0
+Requires-Dist: aiohttp>=3.9.0
 Provides-Extra: browser
 Requires-Dist: playwright>=1.40.0; extra == "browser"
 Provides-Extra: dev
@@ -38,11 +40,11 @@ Requires-Dist: ruff>=0.1.0; extra == "dev"
 Requires-Dist: mypy>=1.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
 
-﻿# 🚀 TestGen AI
+# 🚀 TestGen AI
 
 > **The Autonomous QA Agent from Your CLI**
 
-[![PyPI version](https://img.shields.io/pypi/v/testgen-ai.svg)](https://pypi.org/project/testgen-ai/)
+[![PyPI version](https://img.shields.io/pypi/v/testgen-ai.svg?cache=none)](https://pypi.org/project/testgen-ai/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docs](https://img.shields.io/badge/docs-live-brightgreen.svg)](https://JayPatil165.github.io/TestGen-AI/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
