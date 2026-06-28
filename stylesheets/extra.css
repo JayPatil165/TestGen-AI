@@ -1,0 +1,35 @@
+:root {
+  --md-primary-fg-color: #3f51b5;
+  --md-primary-fg-color--light: #7986cb;
+  --md-primary-fg-color--dark: #303f9f;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #283593;
+}
+
+.md-header {
+  background-color: var(--md-primary-fg-color);
+  background-image: linear-gradient(to right, var(--md-primary-fg-color), var(--md-primary-fg-color--dark));
+}
+
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--md-primary-fg-color);
+}
+
+/* In dark mode the primary color is very dark navy — override headings to white */
+[data-md-color-scheme="slate"] .md-typeset h1,
+[data-md-color-scheme="slate"] .md-typeset h2,
+[data-md-color-scheme="slate"] .md-typeset h3 {
+  color: var(--md-typeset-color);
+}
+
+.md-footer {
+  border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+[data-md-color-scheme="slate"] .md-footer {
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
