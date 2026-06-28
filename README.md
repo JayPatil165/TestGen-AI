@@ -136,18 +136,18 @@ TestGen AI operates on a 4-step loop:
 
 ## 📊 Terminal Output
 
-```
-╔══════════════════════════════════════════════════════════════════╗
-║                    TEST EXECUTION MATRIX                         ║
-╠═══════════════════════════════╦══════════╦══════════╦════════════╣
-║ Test Name                     ║ Status   ║ Duration ║ Details    ║
-╠═══════════════════════════════╬══════════╬══════════╬════════════╣
-║ test_user_login               ║ ✔ PASS   ║ 0.24s    ║            ║
-║ test_user_registration        ║ ✔ PASS   ║ 0.31s    ║            ║
-║ test_password_validation      ║ ✘ FAIL   ║ 0.12s    ║ AssertionE…║
-║ test_database_connection      ║ ✔ PASS   ║ 5.01s    ║ [SLOW]     ║
-║ test_api_endpoint_users       ║ ✔ PASS   ║ 0.89s    ║            ║
-╚═══════════════════════════════╩══════════╩══════════╩════════════╝
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│                    TEST EXECUTION MATRIX                         │
+├───────────────────────────────┬──────────┬──────────┬────────────┤
+│ Test Name                     │ Status   │ Duration │ Details    │
+├───────────────────────────────┼──────────┼──────────┼────────────┤
+│ test_user_login               │ ✓ PASS   │ 0.24s    │            │
+│ test_user_registration        │ ✓ PASS   │ 0.31s    │            │
+│ test_password_validation      │ ✗ FAIL   │ 0.12s    │ AssertionE…│
+│ test_database_connection      │ ✓ PASS   │ 5.01s    │ [SLOW]     │
+│ test_api_endpoint_users       │ ✓ PASS   │ 0.89s    │            │
+└───────────────────────────────┴──────────┴──────────┴────────────┘
 
 Summary: 4 passed, 1 failed, 0 skipped | Total: 6.57s
 ```

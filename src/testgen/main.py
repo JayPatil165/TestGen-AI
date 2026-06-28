@@ -929,16 +929,13 @@ def auto(
         
         # Execute auto workflow
         console.print("[bold cyan]═══ Executing Auto Workflow ═══[/bold cyan]\n")
+        console.print("[bold cyan]Running full workflow: analyze -> generate -> test -> report...[/bold cyan]")
         
-        with console.status(
-            "[bold cyan]Running full workflow: analyze -> generate -> test -> report...[/bold cyan]",
-            spinner="dots",
-        ):
-            result = manager.execute_auto(
-                source_files=[str(target_directory)],
-                language=language,
-                report_format='both' if not skip_report else 'json'
-            )
+        result = manager.execute_auto(
+            source_files=[str(target_directory)],
+            language=language,
+            report_format='both' if not skip_report else 'json'
+        )
         
         # Final Summary
         state_info = manager.get_state()
@@ -959,11 +956,11 @@ def auto(
         # Show file locations
         test_dir = target_directory / "TestGen-AI" / "tests"
         console.print("\n[green]📁 Generated files:[/green]")
-        console.print(f"   [link={_file_url(test_dir)}]Tests: {test_dir.absolute()}[/link]")
+        console.print(f"   Tests: file:///{test_dir.absolute().as_posix()}")
         
         if not skip_report:
             report_dir = target_directory / "TestGen-AI" / "reports"
-            console.print(f"   [link={_file_url(report_dir)}]Reports: {report_dir.absolute()}[/link]")
+            console.print(f"   Reports: file:///{report_dir.absolute().as_posix()}")
         
         console.print("\n[bold green]Success![/bold green] Your autonomous QA agent has completed all tasks.")
         console.print("  [cyan]→[/cyan] Use [bold cyan]testgen auto --help[/bold cyan] to see all available flags")
