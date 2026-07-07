@@ -2,7 +2,7 @@
 
 > **The Autonomous QA Agent from Your CLI**
 
-[![PyPI version](https://badge.fury.io/py/testgen-ai.svg)](https://pypi.org/project/testgen-ai/)
+[![PyPI version](https://img.shields.io/pypi/v/testgen-ai.svg?color=orange&cacheBuster=20260707_v3)](https://pypi.org/project/testgen-ai/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docs](https://img.shields.io/badge/docs-live-brightgreen.svg)](https://JayPatil165.github.io/TestGen-AI/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
