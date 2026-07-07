@@ -350,16 +350,25 @@
             }
         }
 
-        /* Print-friendly styles */
         @media print {
+            @page {
+                size: auto;
+                margin: 10mm;
+            }
+
             body {
                 background: white;
                 padding: 0;
+                width: 100%;
+                max-width: 100%;
             }
 
             .container {
                 box-shadow: none;
                 border: 1px solid #ddd;
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
             }
 
             .summary-card {
@@ -371,13 +380,29 @@
                 display: none;
             }
 
+            /* Prevent charts from overflowing */
+            .chart-container, canvas {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+
             table {
                 break-inside: auto;
+                width: 100%;
+                max-width: 100%;
+                table-layout: fixed; /* Force table to obey width */
             }
 
             tr {
                 break-inside: avoid;
                 page-break-inside: avoid;
+            }
+
+            th, td {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+                word-break: break-word;
             }
 
             thead {

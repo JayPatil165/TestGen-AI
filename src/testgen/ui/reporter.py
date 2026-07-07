@@ -988,7 +988,9 @@ class ReportGenerator:
             font-weight: 600;
             transition: all 0.2s;
             flex-shrink: 0;
-              /* Print-friendly styles to exactly match screen */
+        }}
+
+        /* Print-friendly styles to exactly match screen */
         @media print {{
             * {{
                 -webkit-print-color-adjust: exact !important;
@@ -1032,11 +1034,25 @@ class ReportGenerator:
 
             table {{
                 page-break-inside: auto;
+                width: 100% !important;
+                table-layout: fixed !important;
+            }}
+
+            th, td {{
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+                white-space: normal !important;
+                word-break: break-word !important;
             }}
 
             tr {{
                 page-break-inside: avoid;
                 page-break-after: auto;
+            }}
+
+            canvas {{
+                max-width: 100% !important;
+                height: auto !important;
             }}
         }}
     </style>

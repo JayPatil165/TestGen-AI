@@ -235,7 +235,11 @@ class LLMClient:
             "   wrap a single-quoted or double-quoted string literal mid-sentence.\n"
         )
         if language.lower() == 'python':
-            system_prompt += "5. The output must be parseable by Python's ast.parse() without errors.\n"
+            system_prompt += (
+                "5. The output must be parseable by Python's ast.parse() without errors.\n"
+                "6. If testing exceptions with pytest.raises(..., match=...), use a simple "
+                "substring without regex special characters like parentheses, brackets, or plus signs.\n"
+            )
 
         user_prompt = (
             f"Generate {framework} unit tests for the following {lang_name} code.\n\n"
@@ -253,11 +257,12 @@ class LLMClient:
         response = self.generate(user_prompt, system_prompt=system_prompt, **kwargs)
         test_code = response.content
 
+        import re
+        # Remove LLM control tokens like <ctrl63> that can break code fencing and syntax
+        test_code = re.sub(r'<ctrl\d+>', '', test_code)
+
         # Strip markdown code fences (```python ... ``` or ``` ... ```)
         test_code = self._strip_code_fences(test_code)
-
-        # Repair common LLM formatting issues (line-wrapped string literals)
-        test_code = self._repair_linebroken_strings(test_code)
 
         # Validate syntax; if still broken, emit a warning comment at the top
         if language.lower() == 'python':
@@ -313,19 +318,32 @@ class LLMClient:
             # Use a simple tokeniser: walk the line tracking quote state
             in_single = False
             in_double = False
+            in_triple_single = False
+            in_triple_double = False
             j = 0
             while j < len(stripped):
-                c = stripped[j]
-                if c == '\\':
+                if stripped[j:j+2] == '\\\\':
                     j += 2
                     continue
-                if c == '"' and not in_single:
+                if stripped[j] == '\\':
+                    j += 2
+                    continue
+                if stripped[j:j+3] == '"""' and not in_single and not in_triple_single:
+                    in_triple_double = not in_triple_double
+                    j += 3
+                    continue
+                if stripped[j:j+3] == "'''" and not in_double and not in_triple_double:
+                    in_triple_single = not in_triple_single
+                    j += 3
+                    continue
+                if stripped[j] == '"' and not in_single and not in_triple_single and not in_triple_double:
                     in_double = not in_double
-                elif c == "'" and not in_double:
+                elif stripped[j] == "'" and not in_double and not in_triple_double and not in_triple_single:
                     in_single = not in_single
                 j += 1
-            # If a string is left open AND there is a next line, merge them
-            if (in_single or in_double) and i + 1 < len(lines):
+            # If a single/double string is left open AND there is a next line, merge them.
+            # Do NOT merge if we are inside a triple-quoted string, as those are allowed to be multi-line.
+            if (in_single or in_double) and not (in_triple_single or in_triple_double) and i + 1 < len(lines):
                 combined = stripped + " " + lines[i + 1].lstrip()
                 out.append(combined)
                 i += 2

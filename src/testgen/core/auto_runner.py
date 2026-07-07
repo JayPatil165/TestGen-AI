@@ -159,7 +159,7 @@ class UniversalAutoRunner:
                 capture_output=True,
                 text=True,
                 timeout=30,  # 30 second timeout
-                cwd=test_file.parent if test_file.parent.exists() else Path.cwd()
+                cwd=Path.cwd()
             )
             
             # Parse output
