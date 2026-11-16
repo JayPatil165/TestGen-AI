@@ -636,5 +636,25 @@ class LLMClient:
         }
 
 
-# Convenience instance with default configuration
-llm_client = LLMClient()
+# Convenience getter and lazy module-level attribute for default LLM client
+_default_llm_client: Optional[LLMClient] = None
+
+
+def get_llm_client() -> LLMClient:
+    """Get or lazily initialize the default LLMClient instance.
+
+    Returns:
+        LLMClient: The initialized singleton LLM client.
+    """
+    global _default_llm_client
+    if _default_llm_client is None:
+        _default_llm_client = LLMClient()
+    return _default_llm_client
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily provide module attributes like llm_client to prevent crashes at import time."""
+    if name == "llm_client":
+        return get_llm_client()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+

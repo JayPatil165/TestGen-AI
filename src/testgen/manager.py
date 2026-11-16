@@ -20,22 +20,22 @@ from datetime import datetime
 # Core module imports - with graceful fallback for testing
 try:
     from testgen.core.scanner import CodeScanner
-except ImportError:
-    pass  # Will be None if not found
+except (ImportError, Exception):
+    CodeScanner = None
 
 try:
     from testgen.core.llm import LLMClient
-except ImportError:
+except (ImportError, Exception):
     LLMClient = None
 
 try:
     from testgen.core.mock_llm import MockLLM
-except ImportError:
+except (ImportError, Exception):
     MockLLM = None
 
 try:
     from testgen.core.runner_factory import create_test_runner
-except ImportError:
+except (ImportError, Exception):
     create_test_runner = None
 
 try:
